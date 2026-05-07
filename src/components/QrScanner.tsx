@@ -14,6 +14,14 @@ export function QrScanner({ onScan, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // `cancelled` is true once this effect has been cleaned up. Because
+    // `scanner.start()` is async, a StrictMode double-mount or a fast
+    // unmount can fire cleanup before start has resolved — at which point
+    // `scanner.isScanning` is still false and we'd skip `stop()`. The
+    // start callback then attaches a <video> to a scanner that nobody
+    // owns, producing a second camera preview. The fix: make the
+    // resolution of start() responsible for stopping when cleanup ran first.
+    let cancelled = false;
     const scanner = new Html5Qrcode("qr-reader");
     scannerRef.current = scanner;
 
@@ -22,23 +30,35 @@ export function QrScanner({ onScan, onClose }: Props) {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (result) => {
+          if (cancelled) return;
           onScan(result);
           handleClose();
         },
         () => {},
       )
-      .then(() => setIsRunning(true))
+      .then(() => {
+        if (cancelled) {
+          // Effect was already cleaned up while start was in-flight.
+          // Now that the camera is actually running, tear it down.
+          scanner.stop().catch(() => {});
+          return;
+        }
+        setIsRunning(true);
+      })
       .catch((err: unknown) => {
+        if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
         setError("カメラを起動できませんでした: " + message);
       });
 
     return () => {
-      // アンマウント時は isRunning フラグに関係なく
-      // scanner.isScanning で確認してから止める
+      cancelled = true;
       if (scanner.isScanning) {
+        // Already-running case: stop now.
         scanner.stop().catch(() => {});
       }
+      // Not-yet-started case: the .then handler above will see `cancelled`
+      // and stop once start() resolves.
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
