@@ -1,76 +1,23 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { TextAreaField, TextField } from "@/components/Field";
 import { Header } from "@/components/Header";
 import { QrCard } from "@/components/QrCard";
+import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
+import {
+  ANIMAL_TYPE_LABEL,
+  CATEGORY_LABEL,
+  STORAGE_TEMP_LABEL,
+  TX_TYPE_LABEL,
+} from "@/constants";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type { ItemWithInventory, TransactionWithItem } from "@/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
-
-type ItemDetail = {
-  id: string;
-  name: string;
-  category: string;
-  unit: string;
-  price: number | null;
-  yjCode: string | null;
-  janCode: string | null;
-  reorderPoint: number;
-  minStock: number;
-  storageTemp: string;
-  animalType: string;
-  requiresPrescription: boolean;
-  toxicClass: string | null;
-  qrCode: string | null;
-  notes: string | null;
-  clinicId: string;
-  inventory: Array<{
-    id: string;
-    quantity: number;
-    lotNumber: string | null;
-    expiryDate: string | null;
-    location: string | null;
-  }>;
-};
-
-type TransactionRow = {
-  id: string;
-  type: string;
-  quantity: number;
-  lotNumber: string | null;
-  patientId: string | null;
-  vetId: string | null;
-  note: string | null;
-  createdAt: string;
-};
-
-type ToastState = {
-  tone: "success" | "error";
-  message: string;
-} | null;
-
-const CATEGORY_LABEL: Record<string, string> = {
-  medical: "医薬品",
-  consumable: "消耗品",
-  reagent: "試薬",
-};
-const STORAGE_LABEL: Record<string, string> = {
-  normal: "常温",
-  refrigerated: "冷蔵",
-  frozen: "冷凍",
-};
-const ANIMAL_LABEL: Record<string, string> = {
-  dog: "犬",
-  cat: "猫",
-  both: "両方",
-};
-const TX_TYPE_LABEL: Record<string, string> = {
-  in: "入庫",
-  out: "出庫",
-  move: "移動",
-  discard: "廃棄",
-  adjust: "調整",
-};
+import { use, useCallback, useEffect, useState } from "react";
 
 function formatDate(date: string | null): string {
   if (!date) return "—";
@@ -96,80 +43,65 @@ export default function ItemDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const [item, setItem] = useState<ItemDetail | null>(null);
-  const [history, setHistory] = useState<TransactionRow[] | null>(null);
+  const { toast, showSuccess, showError, dismiss } = useToast();
+  const [item, setItem] = useState<ItemWithInventory | null>(null);
+  const [history, setHistory] = useState<TransactionWithItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // edit fields
   const [editName, setEditName] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editReorder, setEditReorder] = useState("");
   const [editMinStock, setEditMinStock] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setError(null);
     try {
-      const [detailRes, txRes] = await Promise.all([
-        fetch(`/api/items/${id}`, { cache: "no-store" }),
-        fetch(`/api/transactions?itemId=${id}`, { cache: "no-store" }),
+      const [detail, tx] = await Promise.all([
+        api.getItem(id),
+        api.listTransactions({ itemId: id }),
       ]);
-      if (!detailRes.ok) throw new Error(`HTTP ${detailRes.status}`);
-      const detail = (await detailRes.json()) as { item: ItemDetail };
       setItem(detail.item);
       setEditName(detail.item.name);
       setEditPrice(detail.item.price?.toString() ?? "");
       setEditReorder(detail.item.reorderPoint.toString());
       setEditMinStock(detail.item.minStock.toString());
       setEditNotes(detail.item.notes ?? "");
-      if (txRes.ok) {
-        const tx = (await txRes.json()) as { transactions: TransactionRow[] };
-        setHistory(tx.transactions.slice(0, 20));
-      } else {
-        setHistory([]);
-      }
+      setHistory(tx.transactions.slice(0, 20));
     } catch (err) {
       setError(err instanceof Error ? err.message : "読み込みに失敗しました");
     }
-  }
+  }, [id]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [load]);
 
   async function save() {
     if (!item) return;
     setSaving(true);
     try {
       const priceNum = editPrice.trim() === "" ? null : Number(editPrice);
-      const res = await fetch(`/api/items/${id}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: editName.trim(),
-          price: priceNum === null ? null : Number.isFinite(priceNum) ? priceNum : null,
-          reorderPoint: Number(editReorder),
-          minStock: Number(editMinStock),
-          notes: editNotes.trim() || null,
-        }),
+      await api.updateItem(id, {
+        name: editName.trim(),
+        price:
+          priceNum === null
+            ? null
+            : Number.isFinite(priceNum)
+              ? priceNum
+              : null,
+        reorderPoint: Number(editReorder),
+        minStock: Number(editMinStock),
+        notes: editNotes.trim() || null,
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      setToast({ tone: "success", message: "更新しました" });
+      showSuccess("更新しました");
       setEditing(false);
       await load();
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "更新に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
       setSaving(false);
     }
@@ -178,22 +110,15 @@ export default function ItemDetailPage({
   async function handleDelete() {
     if (!item) return;
     const ok = window.confirm(
-      `「${item.name}」を削除します。関連する在庫・取引・アラートもすべて削除されます。よろしいですか?`,
+      `「${item.name}」を削除します。よろしいですか?`,
     );
     if (!ok) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
+      await api.deleteItem(id);
       router.push("/inventory");
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "削除に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "削除に失敗しました");
       setDeleting(false);
     }
   }
@@ -202,9 +127,8 @@ export default function ItemDetailPage({
     return (
       <div className="flex flex-1 flex-col">
         <Header title="物品詳細" />
-        <main className="flex-1 flex items-center justify-center text-zinc-500">
-          <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#00b5ad] border-t-transparent" />
-          <span className="ml-3">読み込み中...</span>
+        <main className="flex-1 flex items-center justify-center">
+          <CenteredSpinner />
         </main>
       </div>
     );
@@ -215,9 +139,7 @@ export default function ItemDetailPage({
       <div className="flex flex-1 flex-col">
         <Header title="物品詳細" />
         <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-6">
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error ?? "物品が見つかりません"}
-          </div>
+          <ErrorBanner message={error ?? "物品が見つかりません"} />
         </main>
       </div>
     );
@@ -251,49 +173,33 @@ export default function ItemDetailPage({
 
             {editing ? (
               <div className="space-y-3">
-                <Field label="品名">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
-                  />
-                </Field>
+                <TextField label="品名" value={editName} onChange={setEditName} />
                 <div className="grid grid-cols-3 gap-3">
-                  <Field label="薬価">
-                    <input
-                      type="number"
-                      step="any"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
-                    />
-                  </Field>
-                  <Field label="発注点">
-                    <input
-                      type="number"
-                      value={editReorder}
-                      onChange={(e) => setEditReorder(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
-                    />
-                  </Field>
-                  <Field label="最小在庫">
-                    <input
-                      type="number"
-                      value={editMinStock}
-                      onChange={(e) => setEditMinStock(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
-                    />
-                  </Field>
-                </div>
-                <Field label="メモ">
-                  <textarea
-                    value={editNotes}
-                    onChange={(e) => setEditNotes(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base focus:border-[#00b5ad] focus:outline-none"
+                  <TextField
+                    label="薬価"
+                    type="number"
+                    step="any"
+                    value={editPrice}
+                    onChange={setEditPrice}
                   />
-                </Field>
+                  <TextField
+                    label="発注点"
+                    type="number"
+                    value={editReorder}
+                    onChange={setEditReorder}
+                  />
+                  <TextField
+                    label="最小在庫"
+                    type="number"
+                    value={editMinStock}
+                    onChange={setEditMinStock}
+                  />
+                </div>
+                <TextAreaField
+                  label="メモ"
+                  value={editNotes}
+                  onChange={setEditNotes}
+                />
                 <div className="flex gap-2 pt-2">
                   <button
                     type="button"
@@ -330,10 +236,10 @@ export default function ItemDetailPage({
                   {item.price !== null ? `¥${item.price.toLocaleString()}` : "—"}
                 </Info>
                 <Info label="保管温度">
-                  {STORAGE_LABEL[item.storageTemp] ?? item.storageTemp}
+                  {STORAGE_TEMP_LABEL[item.storageTemp] ?? item.storageTemp}
                 </Info>
                 <Info label="適応動物">
-                  {ANIMAL_LABEL[item.animalType] ?? item.animalType}
+                  {ANIMAL_TYPE_LABEL[item.animalType] ?? item.animalType}
                 </Info>
                 <Info label="YJコード">{item.yjCode ?? "—"}</Info>
                 <Info label="JANコード">{item.janCode ?? "—"}</Info>
@@ -398,7 +304,7 @@ export default function ItemDetailPage({
             入出庫履歴（直近20件）
           </h3>
           {history === null ? (
-            <div className="text-sm text-zinc-500">読み込み中...</div>
+            <CenteredSpinner />
           ) : history.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-8 text-center text-sm text-zinc-500">
               履歴がありません
@@ -423,7 +329,7 @@ export default function ItemDetailPage({
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700">
-                          {TX_TYPE_LABEL[tx.type] ?? tx.type}
+                          {TX_TYPE_LABEL[tx.type as keyof typeof TX_TYPE_LABEL] ?? tx.type}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
@@ -446,7 +352,8 @@ export default function ItemDetailPage({
         <section className="border-t border-zinc-200 pt-6">
           <h3 className="text-lg font-semibold text-red-700 mb-2">削除</h3>
           <p className="text-sm text-zinc-500 mb-3">
-            この物品と関連する全データを削除します。元に戻せません。
+            この物品と関連する全データを削除します。
+            取引履歴がある物品は削除できません（監査証跡保護のため）。
           </p>
           <button
             type="button"
@@ -466,30 +373,9 @@ export default function ItemDetailPage({
         </Link>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="block text-xs font-medium text-zinc-600 mb-1">
-        {label}
-      </span>
-      {children}
-    </label>
   );
 }
 

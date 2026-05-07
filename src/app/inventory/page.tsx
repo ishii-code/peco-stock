@@ -1,29 +1,25 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { QrScanner } from "@/components/QrScanner";
+import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
+import { CATEGORY_LABEL, DAY_MS } from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type { ItemWithStock } from "@/types";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-
-type ItemRow = {
-  id: string;
-  name: string;
-  category: string;
-  unit: string;
-  reorderPoint: number;
-  minStock: number;
-  totalQuantity: number;
-  nearestExpiry: string | null;
-  clinicId: string;
-};
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type SortKey = "default" | "lowStock" | "expiry";
-
-const CATEGORY_LABEL: Record<string, string> = {
-  medical: "医薬品",
-  consumable: "消耗品",
-  reagent: "試薬",
-};
 
 const CATEGORY_FILTERS: Array<{ value: string; label: string }> = [
   { value: "", label: "すべて" },
@@ -31,8 +27,6 @@ const CATEGORY_FILTERS: Array<{ value: string; label: string }> = [
   { value: "consumable", label: "消耗品" },
   { value: "reagent", label: "試薬" },
 ];
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function daysUntil(date: string | null): number | null {
   if (!date) return null;
@@ -53,93 +47,53 @@ function formatDate(date: string | null): string {
 }
 
 export default function InventoryPage() {
-  const [items, setItems] = useState<ItemRow[] | null>(null);
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, showError, dismiss } = useToast();
+  const [items, setItems] = useState<ItemWithStock[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
   const rowRefs = useRef<Map<string, HTMLTableRowElement | null>>(new Map());
 
-  function setRowRef(id: string) {
-    return (el: HTMLTableRowElement | null) => {
+  const setRowRef = useCallback(
+    (id: string) => (el: HTMLTableRowElement | null) => {
       if (el) rowRefs.current.set(id, el);
       else rowRefs.current.delete(id);
-    };
-  }
-
-  async function handleScanned(scannedId: string) {
-    setScannerOpen(false);
-    try {
-      const res = await fetch(`/api/items/${encodeURIComponent(scannedId)}`, {
-        cache: "no-store",
-      });
-      if (res.status === 404) {
-        setToast({
-          tone: "error",
-          message: "QRコードに対応する物品が見つかりません",
-        });
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { item: { id: string; name: string } };
-      setCategory("");
-      setSearch("");
-      setHighlightedId(data.item.id);
-      setToast({
-        tone: "success",
-        message: `${data.item.name} をハイライトしました`,
-      });
-      requestAnimationFrame(() => {
-        const row = rowRefs.current.get(data.item.id);
-        row?.scrollIntoView({ behavior: "smooth", block: "center" });
-      });
-      setTimeout(() => setHighlightedId((curr) => (curr === data.item.id ? null : curr)), 4000);
-    } catch (err) {
-      setToast({
-        tone: "error",
-        message:
-          err instanceof Error ? err.message : "物品取得に失敗しました",
-      });
-    }
-  }
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      setError(null);
-      try {
-        const url = new URL("/api/items", window.location.origin);
-        if (category) url.searchParams.set("category", category);
-        if (search) url.searchParams.set("search", search);
-        const res = await fetch(url.toString(), { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { items: ItemRow[] };
+    setError(null);
+    api
+      .listItems({ clinicId, category: category || undefined, search: search || undefined })
+      .then((data) => {
         if (!cancelled) setItems(data.items);
-      } catch (e) {
+      })
+      .catch((err) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "読み込みに失敗しました");
+          setError(err instanceof Error ? err.message : "読み込みに失敗しました");
           setItems([]);
         }
-      }
-    }
-    load();
+      });
     return () => {
       cancelled = true;
     };
-  }, [category, search]);
+  }, [clinicId, category, search]);
 
   const sorted = useMemo(() => {
     if (!items) return null;
+    if (sortKey === "default") return items;
     const copy = [...items];
     if (sortKey === "lowStock") {
-      copy.sort((a, b) => {
-        const da = a.totalQuantity - a.reorderPoint;
-        const db = b.totalQuantity - b.reorderPoint;
-        return da - db;
-      });
+      copy.sort(
+        (a, b) =>
+          a.totalQuantity - a.reorderPoint - (b.totalQuantity - b.reorderPoint),
+      );
     } else if (sortKey === "expiry") {
       copy.sort((a, b) => {
         const ta = a.nearestExpiry
@@ -154,10 +108,35 @@ export default function InventoryPage() {
     return copy;
   }, [items, sortKey]);
 
+  async function handleScanned(scannedId: string) {
+    setScannerOpen(false);
+    try {
+      const data = await api.getItem(scannedId);
+      setCategory("");
+      setSearch("");
+      setHighlightedId(data.item.id);
+      showSuccess(`${data.item.name} をハイライトしました`);
+      requestAnimationFrame(() => {
+        const row = rowRefs.current.get(data.item.id);
+        row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      setTimeout(
+        () => setHighlightedId((curr) => (curr === data.item.id ? null : curr)),
+        4000,
+      );
+    } catch (err) {
+      showError(
+        err instanceof Error
+          ? err.message
+          : "QRコードに対応する物品が見つかりません",
+      );
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col bg-[--background]">
       <header className="bg-white border-b border-zinc-200">
-        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between gap-4">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3 min-h-[48px]">
             <span
               aria-hidden
@@ -214,20 +193,13 @@ export default function InventoryPage() {
         </section>
 
         {error && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            読み込みエラー: {error}
-          </div>
+          <ErrorBanner message={`読み込みエラー: ${error}`} className="mb-4" />
         )}
 
         {sorted === null ? (
-          <div className="flex items-center justify-center py-20 text-zinc-500">
-            <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#00b5ad] border-t-transparent" />
-            <span className="ml-3">読み込み中...</span>
-          </div>
+          <CenteredSpinner />
         ) : sorted.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-16 text-center text-zinc-500">
-            該当する物品がありません
-          </div>
+          <EmptyState message="該当する物品がありません" className="py-16" />
         ) : (
           <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             <div className="overflow-x-auto">
@@ -244,95 +216,14 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((row) => {
-                    const lowStock =
-                      row.totalQuantity <= row.reorderPoint &&
-                      row.reorderPoint > 0;
-                    const days = daysUntil(row.nearestExpiry);
-                    const expirySoon =
-                      days !== null && days <= 30 && days >= 0;
-                    const expired = days !== null && days < 0;
-
-                    const rowBg = lowStock
-                      ? "bg-red-50"
-                      : expirySoon || expired
-                        ? "bg-amber-50"
-                        : "";
-                    const isHighlighted = row.id === highlightedId;
-
-                    return (
-                      <tr
-                        key={row.id}
-                        ref={setRowRef(row.id)}
-                        className={`border-t border-zinc-100 ${rowBg} ${
-                          isHighlighted
-                            ? "outline outline-2 outline-[#00b5ad] outline-offset-[-2px]"
-                            : ""
-                        } transition-[outline]`}
-                      >
-                        <td className="px-4 py-3 font-medium text-zinc-900">
-                          {row.name}
-                          <div className="text-xs text-zinc-500">
-                            単位: {row.unit}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-zinc-600">
-                          {CATEGORY_LABEL[row.category] ?? row.category}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {row.totalQuantity}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-zinc-500">
-                          {row.reorderPoint}
-                        </td>
-                        <td className="px-4 py-3 text-zinc-600 tabular-nums">
-                          {formatDate(row.nearestExpiry)}
-                          {days !== null && (
-                            <div className="text-xs text-zinc-500">
-                              {expired
-                                ? `${Math.abs(days)}日経過`
-                                : `あと${days}日`}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {lowStock ? (
-                            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
-                              発注必要
-                            </span>
-                          ) : expired ? (
-                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                              期限切れ
-                            </span>
-                          ) : expirySoon ? (
-                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                              期限間近
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                              良好
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-2">
-                            <Link
-                              href={`/inventory/${row.id}?action=in`}
-                              className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl bg-[#00b5ad] px-4 text-sm font-medium text-white hover:bg-[#008f88] active:scale-95"
-                            >
-                              入庫
-                            </Link>
-                            <Link
-                              href={`/inventory/${row.id}?action=out`}
-                              className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl border border-[#00b5ad] px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
-                            >
-                              出庫
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {sorted.map((row) => (
+                    <ItemRowView
+                      key={row.id}
+                      row={row}
+                      isHighlighted={row.id === highlightedId}
+                      setRef={setRowRef(row.id)}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -346,12 +237,102 @@ export default function InventoryPage() {
         />
       )}
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
   );
 }
+
+// Pulled into its own component so React can skip re-rendering rows whose
+// props haven't changed when the parent re-renders (e.g., search typing).
+const ItemRowView = function ItemRowView({
+  row,
+  isHighlighted,
+  setRef,
+}: {
+  row: ItemWithStock;
+  isHighlighted: boolean;
+  setRef: (el: HTMLTableRowElement | null) => void;
+}) {
+  const lowStock = row.totalQuantity <= row.reorderPoint && row.reorderPoint > 0;
+  const days = daysUntil(row.nearestExpiry);
+  const expirySoon = days !== null && days <= 30 && days >= 0;
+  const expired = days !== null && days < 0;
+
+  const rowBg = lowStock
+    ? "bg-red-50"
+    : expirySoon || expired
+      ? "bg-amber-50"
+      : "";
+
+  return (
+    <tr
+      ref={setRef}
+      className={`border-t border-zinc-100 ${rowBg} ${
+        isHighlighted
+          ? "outline outline-2 outline-[#00b5ad] outline-offset-[-2px]"
+          : ""
+      } transition-[outline]`}
+    >
+      <td className="px-4 py-3 font-medium text-zinc-900">
+        <Link
+          href={`/items/${row.id}`}
+          className="hover:text-[#00b5ad] hover:underline"
+        >
+          {row.name}
+        </Link>
+        <div className="text-xs text-zinc-500">単位: {row.unit}</div>
+      </td>
+      <td className="px-4 py-3 text-zinc-600">
+        {CATEGORY_LABEL[row.category] ?? row.category}
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums">{row.totalQuantity}</td>
+      <td className="px-4 py-3 text-right tabular-nums text-zinc-500">
+        {row.reorderPoint}
+      </td>
+      <td className="px-4 py-3 text-zinc-600 tabular-nums">
+        {formatDate(row.nearestExpiry)}
+        {days !== null && (
+          <div className="text-xs text-zinc-500">
+            {expired ? `${Math.abs(days)}日経過` : `あと${days}日`}
+          </div>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {lowStock ? (
+          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
+            発注必要
+          </span>
+        ) : expired ? (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+            期限切れ
+          </span>
+        ) : expirySoon ? (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+            期限間近
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+            良好
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex justify-end gap-2">
+          <Link
+            href="/stock-in"
+            className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl bg-[#00b5ad] px-4 text-sm font-medium text-white hover:bg-[#008f88] active:scale-95"
+          >
+            入庫
+          </Link>
+          <Link
+            href="/stock-out"
+            className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl border border-[#00b5ad] px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+          >
+            出庫
+          </Link>
+        </div>
+      </td>
+    </tr>
+  );
+};

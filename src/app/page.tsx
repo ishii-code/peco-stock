@@ -1,5 +1,6 @@
 "use client";
 
+import * as api from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -74,10 +75,10 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/alerts?unresolved=1&count=1", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { count: 0 }))
-      .then((data: { count?: number }) => {
-        if (!cancelled) setUnresolvedAlerts(data.count ?? 0);
+    api
+      .countAlerts({ unresolved: true })
+      .then((data) => {
+        if (!cancelled) setUnresolvedAlerts(data.count);
       })
       .catch(() => {
         if (!cancelled) setUnresolvedAlerts(0);

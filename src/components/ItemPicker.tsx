@@ -1,6 +1,8 @@
 "use client";
 
 import { QrScanner } from "@/components/QrScanner";
+import { ApiError } from "@/lib/api";
+import * as api from "@/lib/api";
 import { useEffect, useState } from "react";
 
 export type PickableItem = {
@@ -19,48 +21,36 @@ type Props = {
   onScanError?: (message: string) => void;
 };
 
-type ItemDetailResponse = {
-  item: {
-    id: string;
-    name: string;
-    unit: string;
-    category: string;
-    reorderPoint: number;
-    clinicId: string;
-    inventory: Array<{ quantity: number }>;
-  };
-};
-
 async function fetchItemAsPickable(
   itemId: string,
   expectedClinicId: string,
 ): Promise<PickableItem | { error: string }> {
-  const res = await fetch(`/api/items/${encodeURIComponent(itemId)}`, {
-    cache: "no-store",
-  });
-  if (res.status === 404) {
-    return { error: "QRコードに対応する物品が見つかりません" };
-  }
-  if (!res.ok) {
-    return { error: `物品取得に失敗しました (HTTP ${res.status})` };
-  }
-  const data = (await res.json()) as ItemDetailResponse;
-  if (data.item.clinicId !== expectedClinicId) {
+  try {
+    const data = await api.getItem(itemId);
+    if (data.item.clinicId !== expectedClinicId) {
+      return {
+        error: `この物品は別院（${data.item.clinicId}）に登録されています`,
+      };
+    }
     return {
-      error: `この物品は別院（${data.item.clinicId}）に登録されています`,
+      id: data.item.id,
+      name: data.item.name,
+      unit: data.item.unit,
+      category: data.item.category,
+      reorderPoint: data.item.reorderPoint,
+      totalQuantity: data.item.inventory.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0,
+      ),
+    };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return { error: "QRコードに対応する物品が見つかりません" };
+    }
+    return {
+      error: err instanceof Error ? err.message : "物品取得に失敗しました",
     };
   }
-  return {
-    id: data.item.id,
-    name: data.item.name,
-    unit: data.item.unit,
-    category: data.item.category,
-    reorderPoint: data.item.reorderPoint,
-    totalQuantity: data.item.inventory.reduce(
-      (sum, inv) => sum + inv.quantity,
-      0,
-    ),
-  };
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -101,14 +91,25 @@ export function ItemPicker({
     if (selected) return;
     let cancelled = false;
     setLoading(true);
-    const url = new URL("/api/items", window.location.origin);
-    url.searchParams.set("clinicId", clinicId);
-    if (query.trim() !== "") url.searchParams.set("search", query.trim());
     const t = setTimeout(() => {
-      fetch(url.toString(), { cache: "no-store" })
-        .then((res) => (res.ok ? res.json() : { items: [] }))
-        .then((data: { items: PickableItem[] }) => {
-          if (!cancelled) setResults(data.items.slice(0, 20));
+      api
+        .listItems({
+          clinicId,
+          search: query.trim() || undefined,
+        })
+        .then((data) => {
+          if (!cancelled) {
+            setResults(
+              data.items.slice(0, 20).map((it) => ({
+                id: it.id,
+                name: it.name,
+                unit: it.unit,
+                category: it.category,
+                totalQuantity: it.totalQuantity,
+                reorderPoint: it.reorderPoint,
+              })),
+            );
+          }
         })
         .catch(() => {
           if (!cancelled) setResults([]);

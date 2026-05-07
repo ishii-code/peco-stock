@@ -1,76 +1,52 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { Header } from "@/components/Header";
+import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
+import { CATEGORY_LABEL } from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type { ItemWithStock, StocktakeEntry } from "@/types";
 import { useEffect, useState } from "react";
 
-type ItemRow = {
-  id: string;
-  name: string;
-  unit: string;
-  category: string;
-  totalQuantity: number;
-};
-
-type CompletedEntry = {
-  id: string;
-  itemId: string;
-  expected: number;
-  actual: number;
-  diff: number;
-  item: { id: string; name: string; unit: string; category: string } | null;
-};
-
-type ToastState = {
-  tone: "success" | "error";
-  message: string;
-} | null;
-
-const CATEGORY_LABEL: Record<string, string> = {
-  medical: "医薬品",
-  consumable: "消耗品",
-  reagent: "試薬",
-};
-
 export default function StocktakePage() {
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, dismiss } = useToast();
   const [stocktakeId, setStocktakeId] = useState<string | null>(null);
-  const [items, setItems] = useState<ItemRow[] | null>(null);
+  const [items, setItems] = useState<ItemWithStock[] | null>(null);
   const [actuals, setActuals] = useState<Record<string, string>>({});
-  const [report, setReport] = useState<CompletedEntry[] | null>(null);
+  const [report, setReport] = useState<StocktakeEntry[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
 
   useEffect(() => {
     if (!stocktakeId || report) return;
     let cancelled = false;
-    const url = new URL("/api/items", window.location.origin);
-    url.searchParams.set("clinicId", DEFAULT_CLINIC_ID);
-    fetch(url.toString(), { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data: { items: ItemRow[] }) => {
+    api
+      .listItems({ clinicId })
+      .then((data) => {
         if (!cancelled) setItems(data.items);
       })
-      .catch(() => {
-        if (!cancelled) setError("物品リストの取得に失敗しました");
+      .catch((err) => {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "物品リストの取得に失敗しました",
+          );
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [stocktakeId, report]);
+  }, [stocktakeId, report, clinicId]);
 
   async function startStocktake() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/stocktakes", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ clinicId: DEFAULT_CLINIC_ID }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { stocktake: { id: string } };
+      const data = await api.startStocktake({ clinicId });
       setStocktakeId(data.stocktake.id);
       setActuals({});
       setReport(null);
@@ -87,12 +63,12 @@ export default function StocktakePage() {
     setError(null);
     try {
       const entries = items
-        .map((item) => {
-          const raw = actuals[item.id];
+        .map((it) => {
+          const raw = actuals[it.id];
           if (raw === undefined || raw.trim() === "") return null;
           const actual = Number(raw);
           if (!Number.isFinite(actual)) return null;
-          return { itemId: item.id, actual };
+          return { itemId: it.id, actual };
         })
         .filter((x): x is { itemId: string; actual: number } => x !== null);
 
@@ -100,20 +76,9 @@ export default function StocktakePage() {
         throw new Error("実数を1件以上入力してください");
       }
 
-      const res = await fetch(`/api/stocktakes/${stocktakeId}/complete`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ entries }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as {
-        stocktake: { entries: CompletedEntry[] };
-      };
+      const data = await api.completeStocktake(stocktakeId, { entries });
       setReport(data.stocktake.entries);
-      setToast({ tone: "success", message: "棚卸を完了しました" });
+      showSuccess("棚卸を完了しました");
     } catch (err) {
       setError(err instanceof Error ? err.message : "棚卸完了に失敗しました");
     } finally {
@@ -133,11 +98,7 @@ export default function StocktakePage() {
     <div className="flex flex-1 flex-col">
       <Header title="棚卸" showAlertBadge />
       <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 py-6">
-        {error && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <ErrorBanner message={error} className="mb-4" />}
 
         {!stocktakeId && (
           <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center">
@@ -165,14 +126,9 @@ export default function StocktakePage() {
             </div>
 
             {items === null ? (
-              <div className="flex items-center justify-center py-20 text-zinc-500">
-                <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#00b5ad] border-t-transparent" />
-                <span className="ml-3">読み込み中...</span>
-              </div>
+              <CenteredSpinner />
             ) : items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-16 text-center text-zinc-500">
-                物品が登録されていません
-              </div>
+              <EmptyState message="物品が登録されていません" />
             ) : (
               <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
                 <div className="overflow-x-auto">
@@ -333,11 +289,7 @@ export default function StocktakePage() {
         )}
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
   );

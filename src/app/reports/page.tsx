@@ -1,8 +1,21 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
 import { Header } from "@/components/Header";
+import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
+import { CATEGORY_LABEL } from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type {
+  ConsumptionPoint,
+  ExpiryReport,
+  ExpiryRow,
+  InventoryValueReport,
+  Item,
+  TurnoverRow,
+} from "@/types";
 import { useEffect, useState } from "react";
 import {
   CartesianGrid,
@@ -17,45 +30,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-type ItemRef = { id: string; name: string; unit: string };
-
-type ConsumptionPoint = { date: string; quantity: number };
-
-type InventoryValue = {
-  category: string;
-  quantity: number;
-  value: number;
-  itemCount: number;
-};
-
-type ExpiryRow = {
-  id: string;
-  itemId: string;
-  quantity: number;
-  lotNumber: string | null;
-  expiryDate: string;
-  daysLeft: number;
-  item: { id: string; name: string; unit: string; category: string };
-};
-
-type ExpiryReport = { d30: ExpiryRow[]; d60: ExpiryRow[]; d90: ExpiryRow[] };
-
-type TurnoverRow = {
-  itemId: string;
-  name: string;
-  unit: string;
-  category: string;
-  consumed: number;
-  stock: number;
-  turnover: number;
-};
-
-const CATEGORY_LABEL: Record<string, string> = {
-  medical: "医薬品",
-  consumable: "消耗品",
-  reagent: "試薬",
-};
 
 const CATEGORY_COLOR: Record<string, string> = {
   medical: "#00b5ad",
@@ -72,88 +46,68 @@ function defaultDateRange(): { start: string; end: string } {
   };
 }
 
+type ItemRef = Pick<Item, "id" | "name" | "unit">;
+
 export default function ReportsPage() {
+  const { clinicId } = useClinic();
+  const { toast, showInfo, dismiss } = useToast();
   const [items, setItems] = useState<ItemRef[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const initial = defaultDateRange();
   const [startDate, setStartDate] = useState(initial.start);
   const [endDate, setEndDate] = useState(initial.end);
   const [consumption, setConsumption] = useState<ConsumptionPoint[] | null>(null);
-  const [inventoryValue, setInventoryValue] = useState<{
-    breakdown: InventoryValue[];
-    total: number;
-  } | null>(null);
+  const [inventoryValue, setInventoryValue] = useState<InventoryValueReport | null>(null);
   const [expiry, setExpiry] = useState<ExpiryReport | null>(null);
   const [turnover, setTurnover] = useState<TurnoverRow[] | null>(null);
-  const [toast, setToast] = useState<{ tone: "info" | "error"; message: string } | null>(
-    null,
-  );
 
   useEffect(() => {
-    fetch(`/api/items?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}`, {
-      cache: "no-store",
-    })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data: { items: ItemRef[] }) => {
+    api
+      .listItems({ clinicId })
+      .then((data) => {
         setItems(data.items);
-        if (data.items[0] && selectedItemId === "") {
-          setSelectedItemId(data.items[0].id);
+        if (data.items[0]) {
+          setSelectedItemId((curr) => curr || data.items[0].id);
         }
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      })
+      .catch(() => {});
+  }, [clinicId]);
 
   useEffect(() => {
     if (!selectedItemId) return;
-    const url = new URL("/api/reports/consumption", window.location.origin);
-    url.searchParams.set("clinicId", DEFAULT_CLINIC_ID);
-    url.searchParams.set("itemId", selectedItemId);
-    if (startDate) url.searchParams.set("startDate", startDate);
-    if (endDate) url.searchParams.set("endDate", endDate);
-    fetch(url.toString(), { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { series: [] }))
-      .then((data: { series: ConsumptionPoint[] }) => {
-        setConsumption(data.series);
-      });
-  }, [selectedItemId, startDate, endDate]);
+    api
+      .reportConsumption({
+        clinicId,
+        itemId: selectedItemId,
+        startDate,
+        endDate,
+      })
+      .then((data) => setConsumption(data.series))
+      .catch(() => setConsumption([]));
+  }, [clinicId, selectedItemId, startDate, endDate]);
 
   useEffect(() => {
-    fetch(
-      `/api/reports/inventory-value?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}`,
-      { cache: "no-store" },
-    )
-      .then((res) => (res.ok ? res.json() : { breakdown: [], total: 0 }))
-      .then((data: { breakdown: InventoryValue[]; total: number }) => {
-        setInventoryValue(data);
-      });
-    fetch(
-      `/api/reports/expiry?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}`,
-      { cache: "no-store" },
-    )
-      .then((res) =>
-        res.ok ? res.json() : { d30: [], d60: [], d90: [] },
-      )
-      .then((data: ExpiryReport) => setExpiry(data));
-    fetch(
-      `/api/reports/turnover?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}`,
-      { cache: "no-store" },
-    )
-      .then((res) => (res.ok ? res.json() : { ranking: [] }))
-      .then((data: { ranking: TurnoverRow[] }) => setTurnover(data.ranking));
-  }, []);
+    api
+      .reportInventoryValue({ clinicId })
+      .then(setInventoryValue)
+      .catch(() => setInventoryValue({ breakdown: [], total: 0 }));
+    api
+      .reportExpiry({ clinicId })
+      .then(setExpiry)
+      .catch(() => setExpiry({ d30: [], d60: [], d90: [] }));
+    api
+      .reportTurnover({ clinicId })
+      .then((data) => setTurnover(data.ranking))
+      .catch(() => setTurnover([]));
+  }, [clinicId]);
 
   function exportCsv(kind: "inventory" | "transactions") {
-    const url = new URL(
-      `/api/exports/${kind}`,
-      window.location.origin,
-    );
-    url.searchParams.set("clinicId", DEFAULT_CLINIC_ID);
-    if (kind === "transactions") {
-      if (startDate) url.searchParams.set("startDate", startDate);
-      if (endDate) url.searchParams.set("endDate", endDate);
-    }
-    window.open(url.toString(), "_blank");
-    setToast({ tone: "info", message: "CSVをダウンロード中..." });
+    const url =
+      kind === "inventory"
+        ? api.exportInventoryUrl({ clinicId })
+        : api.exportTransactionsUrl({ clinicId, startDate, endDate });
+    window.open(url, "_blank");
+    showInfo("CSVをダウンロード中...");
   }
 
   return (
@@ -217,9 +171,7 @@ export default function ReportsPage() {
           </div>
           <div className="h-64">
             {consumption === null ? (
-              <div className="h-full flex items-center justify-center text-sm text-zinc-500">
-                読み込み中...
-              </div>
+              <CenteredSpinner />
             ) : consumption.length === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-zinc-500">
                 該当期間の出庫データがありません
@@ -257,9 +209,7 @@ export default function ReportsPage() {
           </div>
           <div className="h-64">
             {inventoryValue === null ? (
-              <div className="h-full flex items-center justify-center text-sm text-zinc-500">
-                読み込み中...
-              </div>
+              <CenteredSpinner />
             ) : inventoryValue.total === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-zinc-500">
                 薬価が設定された在庫がありません
@@ -325,11 +275,9 @@ export default function ReportsPage() {
             在庫回転率ランキング（直近90日）
           </h2>
           {turnover === null ? (
-            <div className="text-sm text-zinc-500">読み込み中...</div>
+            <CenteredSpinner />
           ) : turnover.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-500">
-              データがありません
-            </div>
+            <EmptyState message="データがありません" />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
               <table className="min-w-full text-sm">
@@ -372,11 +320,7 @@ export default function ReportsPage() {
         </section>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
   );
@@ -416,7 +360,10 @@ function ExpiryBucket({
               <div className="font-medium text-zinc-900">{row.item.name}</div>
               <div className="text-xs text-zinc-500 flex justify-between mt-1 tabular-nums">
                 <span>
-                  期限: {new Date(row.expiryDate).toLocaleDateString("ja-JP")}
+                  期限:{" "}
+                  {row.expiryDate
+                    ? new Date(row.expiryDate).toLocaleDateString("ja-JP")
+                    : "—"}
                 </span>
                 <span>
                   残{row.daysLeft}日 · {row.quantity}

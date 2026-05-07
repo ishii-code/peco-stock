@@ -1,33 +1,17 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { Header } from "@/components/Header";
+import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
-import { useEffect, useState } from "react";
-
-type AlertRow = {
-  id: string;
-  itemId: string;
-  type: "reorder" | "expiry" | string;
-  triggeredAt: string;
-  resolvedAt: string | null;
-  currentStock: number;
-  nearestExpiry: string | null;
-  item: {
-    id: string;
-    name: string;
-    unit: string;
-    category: string;
-    reorderPoint: number;
-  } | null;
-};
-
-type ToastState = {
-  tone: "success" | "error" | "info";
-  message: string;
-} | null;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useFetch } from "@/hooks/useFetch";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type { AlertWithDetails } from "@/types";
+import { useCallback, useState } from "react";
 
 function daysUntil(date: string | null): number | null {
   if (!date) return null;
@@ -48,90 +32,59 @@ function formatDate(date: string | null): string {
 }
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<AlertRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, showError, showInfo, dismiss } = useToast();
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState<ToastState>(null);
 
-  async function load() {
-    setError(null);
-    try {
-      const url = new URL("/api/alerts", window.location.origin);
-      url.searchParams.set("clinicId", DEFAULT_CLINIC_ID);
-      const res = await fetch(url.toString(), { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { alerts: AlertRow[] };
-      setAlerts(data.alerts);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "読み込みに失敗しました");
-      setAlerts([]);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  const loadAlerts = useCallback(
+    () => api.listAlerts({ clinicId }),
+    [clinicId],
+  );
+  const { data, error, loading, refetch } = useFetch(loadAlerts, [loadAlerts]);
+  const alerts: AlertWithDetails[] = data?.alerts ?? [];
 
   async function runCheck() {
     setBusy(true);
     try {
-      const res = await fetch("/api/alerts/check", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ clinicId: DEFAULT_CLINIC_ID }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        created: { reorder: number; expiry: number };
-      };
-      setToast({
-        tone: "info",
-        message: `新規アラート: 発注点 ${data.created.reorder}件 / 期限 ${data.created.expiry}件`,
-      });
-      await load();
+      const data = await api.runAlertCheck({ clinicId });
+      showInfo(
+        `新規アラート: 発注点 ${data.created.reorder}件 / 期限 ${data.created.expiry}件`,
+      );
+      await refetch();
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "チェックに失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "チェックに失敗しました");
     } finally {
       setBusy(false);
     }
   }
 
-  async function resolveAlert(id: string) {
+  async function handleResolve(id: string) {
     try {
-      const res = await fetch(`/api/alerts/${id}/resolve`, { method: "PUT" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setToast({ tone: "success", message: "解決済みにしました" });
-      await load();
+      await api.resolveAlert(id);
+      showSuccess("解決済みにしました");
+      await refetch();
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "更新に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "更新に失敗しました");
     }
   }
 
-  const reorderAlerts =
-    alerts?.filter((a) => a.type === "reorder" && !a.resolvedAt) ?? [];
-  const expiryAlerts =
-    alerts?.filter((a) => a.type === "expiry" && !a.resolvedAt) ?? [];
-  const resolved = alerts?.filter((a) => a.resolvedAt) ?? [];
+  const reorderAlerts = alerts.filter(
+    (a) => a.type === "reorder" && !a.resolvedAt,
+  );
+  const expiryAlerts = alerts.filter(
+    (a) => a.type === "expiry" && !a.resolvedAt,
+  );
+  const resolved = alerts.filter((a) => a.resolvedAt);
 
   return (
     <div className="flex flex-1 flex-col">
       <Header title="アラート" />
       <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 space-y-8">
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <ErrorBanner message={error} />}
 
         <div className="flex items-center justify-between">
           <div className="text-sm text-zinc-500">
-            {alerts === null
+            {loading
               ? "読み込み中..."
               : `未解決 ${reorderAlerts.length + expiryAlerts.length} 件 / 解決済み ${resolved.length} 件`}
           </div>
@@ -145,13 +98,11 @@ export default function AlertsPage() {
           </button>
         </div>
 
-        <Section
-          title="発注点アラート"
-          count={reorderAlerts.length}
-          tone="reorder"
-        >
-          {reorderAlerts.length === 0 ? (
-            <Empty label="発注点を下回った物品はありません" />
+        <Section title="発注点アラート" count={reorderAlerts.length} tone="reorder">
+          {loading ? (
+            <CenteredSpinner />
+          ) : reorderAlerts.length === 0 ? (
+            <EmptyState message="発注点を下回った物品はありません" />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
               <table className="min-w-full text-sm">
@@ -190,7 +141,7 @@ export default function AlertsPage() {
                         <td className="px-4 py-3 text-right">
                           <button
                             type="button"
-                            onClick={() => resolveAlert(alert.id)}
+                            onClick={() => handleResolve(alert.id)}
                             className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-[#00b5ad] hover:text-[#00b5ad] active:scale-95"
                           >
                             解決済み
@@ -205,13 +156,11 @@ export default function AlertsPage() {
           )}
         </Section>
 
-        <Section
-          title="有効期限アラート"
-          count={expiryAlerts.length}
-          tone="expiry"
-        >
-          {expiryAlerts.length === 0 ? (
-            <Empty label="有効期限が近い物品はありません" />
+        <Section title="有効期限アラート" count={expiryAlerts.length} tone="expiry">
+          {loading ? (
+            <CenteredSpinner />
+          ) : expiryAlerts.length === 0 ? (
+            <EmptyState message="有効期限が近い物品はありません" />
           ) : (
             <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
               <table className="min-w-full text-sm">
@@ -253,7 +202,7 @@ export default function AlertsPage() {
                         <td className="px-4 py-3 text-right">
                           <button
                             type="button"
-                            onClick={() => resolveAlert(alert.id)}
+                            onClick={() => handleResolve(alert.id)}
                             className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-[#00b5ad] hover:text-[#00b5ad] active:scale-95"
                           >
                             解決済み
@@ -269,11 +218,7 @@ export default function AlertsPage() {
         </Section>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
   );
@@ -306,13 +251,5 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-
-function Empty({ label }: { label: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-500">
-      {label}
-    </div>
   );
 }

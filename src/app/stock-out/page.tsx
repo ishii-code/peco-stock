@@ -1,19 +1,22 @@
 "use client";
 
+import { TextAreaField, TextField } from "@/components/Field";
 import { Header } from "@/components/Header";
 import { ItemPicker, type PickableItem } from "@/components/ItemPicker";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
+import type { TransactionType } from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
 import { useEffect, useState } from "react";
-
-type ToastState = {
-  tone: "success" | "error";
-  message: string;
-} | null;
 
 type Reason = "treatment" | "discard" | "move" | "other";
 
-const REASON_OPTIONS: Array<{ value: Reason; label: string; type: string }> = [
+const REASON_OPTIONS: Array<{
+  value: Reason;
+  label: string;
+  type: TransactionType;
+}> = [
   { value: "treatment", label: "診療用", type: "out" },
   { value: "discard", label: "廃棄", type: "discard" },
   { value: "move", label: "移動", type: "move" },
@@ -21,6 +24,8 @@ const REASON_OPTIONS: Array<{ value: Reason; label: string; type: string }> = [
 ];
 
 export default function StockOutPage() {
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, showError, dismiss } = useToast();
   const [item, setItem] = useState<PickableItem | null>(null);
   const [currentStock, setCurrentStock] = useState<number | null>(null);
   const [quantity, setQuantity] = useState("");
@@ -29,7 +34,6 @@ export default function StockOutPage() {
   const [reason, setReason] = useState<Reason>("treatment");
   const [memo, setMemo] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<ToastState>(null);
 
   useEffect(() => {
     if (!item) {
@@ -38,12 +42,9 @@ export default function StockOutPage() {
     }
     setCurrentStock(item.totalQuantity);
     let cancelled = false;
-    fetch(
-      `/api/items?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}&search=${encodeURIComponent(item.name)}`,
-      { cache: "no-store" },
-    )
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data: { items: PickableItem[] }) => {
+    api
+      .listItems({ clinicId, search: item.name })
+      .then((data) => {
         if (cancelled) return;
         const fresh = data.items.find((x) => x.id === item.id);
         if (fresh) setCurrentStock(fresh.totalQuantity);
@@ -52,7 +53,7 @@ export default function StockOutPage() {
     return () => {
       cancelled = true;
     };
-  }, [item]);
+  }, [item, clinicId]);
 
   const qtyNum = Number(quantity);
   const qtyValid =
@@ -82,33 +83,19 @@ export default function StockOutPage() {
       if (reason === "other") noteParts.push("その他");
       if (memo.trim()) noteParts.push(memo.trim());
 
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          itemId: item.id,
-          clinicId: DEFAULT_CLINIC_ID,
-          type: txType,
-          quantity: qtyNum,
-          patientId: patientId.trim() || null,
-          vetId: vetId.trim() || null,
-          note: noteParts.length > 0 ? noteParts.join(" / ") : null,
-        }),
+      await api.createTransaction({
+        itemId: item.id,
+        clinicId,
+        type: txType,
+        quantity: qtyNum,
+        patientId: patientId.trim() || null,
+        vetId: vetId.trim() || null,
+        note: noteParts.length > 0 ? noteParts.join(" / ") : null,
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      setToast({
-        tone: "success",
-        message: `${item.name} を ${qtyNum}${item.unit} 出庫しました`,
-      });
+      showSuccess(`${item.name} を ${qtyNum}${item.unit} 出庫しました`);
       resetForm();
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "出庫に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "出庫に失敗しました");
     } finally {
       setSubmitting(false);
     }
@@ -119,14 +106,17 @@ export default function StockOutPage() {
       <Header title="出庫" showAlertBadge />
       <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          <Field label="物品" required>
+          <div className="block">
+            <span className="block text-sm font-medium text-zinc-700 mb-2">
+              物品<span className="text-red-600 ml-1">*</span>
+            </span>
             <ItemPicker
               selected={item}
               onSelect={setItem}
-              clinicId={DEFAULT_CLINIC_ID}
-              onScanError={(message) => setToast({ tone: "error", message })}
+              clinicId={clinicId}
+              onScanError={(message) => showError(message)}
             />
-          </Field>
+          </div>
 
           {item && currentStock !== null && (
             <div className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -137,30 +127,27 @@ export default function StockOutPage() {
             </div>
           )}
 
-          <Field label="数量" required>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="例: 5"
-              className={`h-12 w-full rounded-xl border bg-white px-4 text-base focus:outline-none focus:ring-2 ${
-                overStock
-                  ? "border-red-500 focus:ring-red-500/20"
-                  : "border-zinc-200 focus:border-[#00b5ad] focus:ring-[#00b5ad]/20"
-              }`}
-            />
-            {overStock && currentStock !== null && (
-              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                在庫不足です。現在庫 {currentStock}
-                {item?.unit ?? ""} を超えています。
-              </div>
-            )}
-          </Field>
+          <TextField
+            label="数量"
+            required
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            value={quantity}
+            onChange={setQuantity}
+            placeholder="例: 5"
+            error={
+              overStock && currentStock !== null
+                ? `在庫不足です。現在庫 ${currentStock}${item?.unit ?? ""} を超えています。`
+                : undefined
+            }
+          />
 
-          <Field label="出庫理由" required>
+          <div className="block">
+            <span className="block text-sm font-medium text-zinc-700 mb-2">
+              出庫理由<span className="text-red-600 ml-1">*</span>
+            </span>
             <div className="grid grid-cols-2 gap-2">
               {REASON_OPTIONS.map((opt) => (
                 <button
@@ -177,37 +164,28 @@ export default function StockOutPage() {
                 </button>
               ))}
             </div>
-          </Field>
+          </div>
 
-          <Field label="患者ID">
-            <input
-              type="text"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
-              placeholder="任意"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="患者ID"
+            value={patientId}
+            onChange={setPatientId}
+            placeholder="任意"
+          />
 
-          <Field label="担当獣医師">
-            <input
-              type="text"
-              value={vetId}
-              onChange={(e) => setVetId(e.target.value)}
-              placeholder="任意"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="担当獣医師"
+            value={vetId}
+            onChange={setVetId}
+            placeholder="任意"
+          />
 
-          <Field label="メモ">
-            <textarea
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="任意"
-              rows={3}
-              className="min-h-[96px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextAreaField
+            label="メモ"
+            value={memo}
+            onChange={setMemo}
+            placeholder="任意"
+          />
 
           <button
             type="submit"
@@ -219,32 +197,8 @@ export default function StockOutPage() {
         </form>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="block text-sm font-medium text-zinc-700 mb-2">
-        {label}
-        {required && <span className="text-red-600 ml-1">*</span>}
-      </span>
-      {children}
-    </label>
   );
 }

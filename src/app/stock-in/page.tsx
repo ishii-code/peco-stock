@@ -1,17 +1,17 @@
 "use client";
 
+import { TextAreaField, TextField } from "@/components/Field";
 import { Header } from "@/components/Header";
 import { ItemPicker, type PickableItem } from "@/components/ItemPicker";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
 import { useState } from "react";
 
-type ToastState = {
-  tone: "success" | "error";
-  message: string;
-} | null;
-
 export default function StockInPage() {
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, showError, dismiss } = useToast();
   const [item, setItem] = useState<PickableItem | null>(null);
   const [quantity, setQuantity] = useState("");
   const [lotNumber, setLotNumber] = useState("");
@@ -20,7 +20,6 @@ export default function StockInPage() {
   const [deliveryNote, setDeliveryNote] = useState("");
   const [memo, setMemo] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<ToastState>(null);
 
   const qtyNum = Number(quantity);
   const canSubmit =
@@ -49,34 +48,20 @@ export default function StockInPage() {
       if (deliveryNote.trim()) noteParts.push(`納品書: ${deliveryNote.trim()}`);
       if (memo.trim()) noteParts.push(memo.trim());
 
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          itemId: item.id,
-          clinicId: DEFAULT_CLINIC_ID,
-          type: "in",
-          quantity: qtyNum,
-          lotNumber: lotNumber.trim() || null,
-          expiryDate: expiryDate || null,
-          location: location.trim() || null,
-          note: noteParts.length > 0 ? noteParts.join(" / ") : null,
-        }),
+      await api.createTransaction({
+        itemId: item.id,
+        clinicId,
+        type: "in",
+        quantity: qtyNum,
+        lotNumber: lotNumber.trim() || null,
+        expiryDate: expiryDate || null,
+        location: location.trim() || null,
+        note: noteParts.length > 0 ? noteParts.join(" / ") : null,
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      setToast({
-        tone: "success",
-        message: `${item.name} を ${qtyNum}${item.unit} 入庫しました`,
-      });
+      showSuccess(`${item.name} を ${qtyNum}${item.unit} 入庫しました`);
       resetForm();
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "入庫に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "入庫に失敗しました");
     } finally {
       setSubmitting(false);
     }
@@ -87,76 +72,64 @@ export default function StockInPage() {
       <Header title="入庫" showAlertBadge />
       <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          <Field label="物品" required>
+          <div className="block">
+            <span className="block text-sm font-medium text-zinc-700 mb-2">
+              物品<span className="text-red-600 ml-1">*</span>
+            </span>
             <ItemPicker
               selected={item}
               onSelect={setItem}
-              clinicId={DEFAULT_CLINIC_ID}
-              onScanError={(message) => setToast({ tone: "error", message })}
+              clinicId={clinicId}
+              onScanError={(message) => showError(message)}
             />
-          </Field>
+          </div>
 
-          <Field label="数量" required>
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="例: 100"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="数量"
+            required
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            value={quantity}
+            onChange={setQuantity}
+            placeholder="例: 100"
+          />
 
-          <Field label="ロット番号">
-            <input
-              type="text"
-              value={lotNumber}
-              onChange={(e) => setLotNumber(e.target.value)}
-              placeholder="例: A1234"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="ロット番号"
+            value={lotNumber}
+            onChange={setLotNumber}
+            placeholder="例: A1234"
+          />
 
-          <Field label="有効期限">
-            <input
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="有効期限"
+            type="date"
+            value={expiryDate}
+            onChange={setExpiryDate}
+          />
 
-          <Field label="保管場所">
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="例: 冷蔵庫A-2"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="保管場所"
+            value={location}
+            onChange={setLocation}
+            placeholder="例: 冷蔵庫A-2"
+          />
 
-          <Field label="納品書番号">
-            <input
-              type="text"
-              value={deliveryNote}
-              onChange={(e) => setDeliveryNote(e.target.value)}
-              placeholder="任意"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="納品書番号"
+            value={deliveryNote}
+            onChange={setDeliveryNote}
+            placeholder="任意"
+          />
 
-          <Field label="メモ">
-            <textarea
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="任意"
-              rows={3}
-              className="min-h-[96px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextAreaField
+            label="メモ"
+            value={memo}
+            onChange={setMemo}
+            placeholder="任意"
+          />
 
           <button
             type="submit"
@@ -168,32 +141,8 @@ export default function StockInPage() {
         </form>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="block text-sm font-medium text-zinc-700 mb-2">
-        {label}
-        {required && <span className="text-red-600 ml-1">*</span>}
-      </span>
-      {children}
-    </label>
   );
 }

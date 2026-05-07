@@ -1,5 +1,6 @@
 "use client";
 
+import * as api from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -19,10 +20,10 @@ export function Header({
   useEffect(() => {
     if (!showAlertBadge) return;
     let cancelled = false;
-    fetch("/api/alerts?unresolved=1&count=1", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { count: 0 }))
-      .then((data: { count?: number }) => {
-        if (!cancelled) setUnresolved(data.count ?? 0);
+    api
+      .countAlerts({ unresolved: true })
+      .then((data) => {
+        if (!cancelled) setUnresolved(data.count);
       })
       .catch(() => {
         if (!cancelled) setUnresolved(0);

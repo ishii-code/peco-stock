@@ -1,60 +1,49 @@
 "use client";
 
+import {
+  SelectField,
+  TextAreaField,
+  TextField,
+} from "@/components/Field";
 import { Header } from "@/components/Header";
 import { QrCard } from "@/components/QrCard";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
+import {
+  ANIMAL_TYPE_OPTIONS,
+  CATEGORY_OPTIONS,
+  STORAGE_TEMP_OPTIONS,
+  UNIT_OPTIONS,
+  type AnimalType,
+  type ItemCategory,
+  type StorageTemp,
+} from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type { Item } from "@/types";
 import Link from "next/link";
 import { useState } from "react";
 
-type ToastState = {
-  tone: "success" | "error";
-  message: string;
-} | null;
-
-type CreatedItem = {
-  id: string;
-  name: string;
-  qrCode: string | null;
-};
-
-const CATEGORIES = [
-  { value: "medical", label: "医薬品" },
-  { value: "consumable", label: "消耗品" },
-  { value: "reagent", label: "試薬" },
-];
-
-const UNITS = ["錠", "mL", "本", "枚", "袋", "個"];
-
-const STORAGE_TEMPS = [
-  { value: "normal", label: "常温" },
-  { value: "refrigerated", label: "冷蔵" },
-  { value: "frozen", label: "冷凍" },
-];
-
-const ANIMAL_TYPES = [
-  { value: "dog", label: "犬" },
-  { value: "cat", label: "猫" },
-  { value: "both", label: "両方" },
-];
+const UNIT_OPTIONS_TYPED = UNIT_OPTIONS.map((u) => ({ value: u, label: u }));
 
 export default function NewItemPage() {
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, showError, dismiss } = useToast();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("medical");
-  const [unit, setUnit] = useState("錠");
+  const [category, setCategory] = useState<ItemCategory>("medical");
+  const [unit, setUnit] = useState<string>("錠");
   const [price, setPrice] = useState("");
   const [yjCode, setYjCode] = useState("");
   const [janCode, setJanCode] = useState("");
   const [reorderPoint, setReorderPoint] = useState("");
   const [minStock, setMinStock] = useState("");
-  const [storageTemp, setStorageTemp] = useState("normal");
-  const [animalType, setAnimalType] = useState("both");
+  const [storageTemp, setStorageTemp] = useState<StorageTemp>("normal");
+  const [animalType, setAnimalType] = useState<AnimalType>("both");
   const [requiresPrescription, setRequiresPrescription] = useState(false);
   const [toxicClass, setToxicClass] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<ToastState>(null);
-  const [created, setCreated] = useState<CreatedItem | null>(null);
+  const [created, setCreated] = useState<Item | null>(null);
 
   const reorderNum = Number(reorderPoint);
   const minStockNum = Number(minStock);
@@ -73,38 +62,29 @@ export default function NewItemPage() {
     setSubmitting(true);
     try {
       const priceNum = price.trim() === "" ? null : Number(price);
-      const res = await fetch("/api/items", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          category,
-          unit,
-          clinicId: DEFAULT_CLINIC_ID,
-          price: typeof priceNum === "number" && Number.isFinite(priceNum) ? priceNum : null,
-          yjCode: category === "medical" && yjCode.trim() ? yjCode.trim() : null,
-          janCode: janCode.trim() || null,
-          reorderPoint: reorderNum,
-          minStock: minStockNum,
-          storageTemp,
-          animalType,
-          requiresPrescription,
-          toxicClass: toxicClass.trim() || null,
-          notes: notes.trim() || null,
-        }),
+      const data = await api.createItem({
+        name: name.trim(),
+        category,
+        unit,
+        clinicId,
+        price:
+          typeof priceNum === "number" && Number.isFinite(priceNum)
+            ? priceNum
+            : null,
+        yjCode: category === "medical" && yjCode.trim() ? yjCode.trim() : null,
+        janCode: janCode.trim() || null,
+        reorderPoint: reorderNum,
+        minStock: minStockNum,
+        storageTemp,
+        animalType,
+        requiresPrescription,
+        toxicClass: toxicClass.trim() || null,
+        notes: notes.trim() || null,
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as { item: CreatedItem };
       setCreated(data.item);
-      setToast({ tone: "success", message: `${data.item.name} を登録しました` });
+      showSuccess(`${data.item.name} を登録しました`);
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "登録に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "登録に失敗しました");
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +132,7 @@ export default function NewItemPage() {
           <Toast
             tone={toast.tone}
             message={toast.message}
-            onDismiss={() => setToast(null)}
+            onDismiss={dismiss}
           />
         )}
       </div>
@@ -164,142 +144,93 @@ export default function NewItemPage() {
       <Header title="物品登録" showAlertBadge />
       <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-6">
         <form onSubmit={handleSubmit} className="space-y-5">
-          <Field label="品名" required>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例: アモキシシリン"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="品名"
+            required
+            value={name}
+            onChange={setName}
+            placeholder="例: アモキシシリン"
+          />
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="カテゴリ" required>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="単位" required>
-              <select
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
-              >
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <SelectField
+              label="カテゴリ"
+              required
+              value={category}
+              onChange={setCategory}
+              options={CATEGORY_OPTIONS}
+            />
+            <SelectField
+              label="単位"
+              required
+              value={unit}
+              onChange={setUnit}
+              options={UNIT_OPTIONS_TYPED}
+            />
           </div>
 
-          <Field label="薬価">
-            <input
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min="0"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="任意"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="薬価"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            value={price}
+            onChange={setPrice}
+            placeholder="任意"
+          />
 
           {category === "medical" && (
-            <Field label="YJコード">
-              <input
-                type="text"
-                value={yjCode}
-                onChange={(e) => setYjCode(e.target.value)}
-                placeholder="任意"
-                className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-              />
-            </Field>
+            <TextField
+              label="YJコード"
+              value={yjCode}
+              onChange={setYjCode}
+              placeholder="任意"
+            />
           )}
 
-          <Field label="JANコード">
-            <input
-              type="text"
-              value={janCode}
-              onChange={(e) => setJanCode(e.target.value)}
-              placeholder="任意"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="JANコード"
+            value={janCode}
+            onChange={setJanCode}
+            placeholder="任意"
+          />
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="発注点" required>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                value={reorderPoint}
-                onChange={(e) => setReorderPoint(e.target.value)}
-                placeholder="例: 20"
-                className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-              />
-            </Field>
-            <Field label="最小在庫数" required>
-              <input
-                type="number"
-                inputMode="numeric"
-                min="0"
-                value={minStock}
-                onChange={(e) => setMinStock(e.target.value)}
-                placeholder="例: 10"
-                className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-              />
-            </Field>
+            <TextField
+              label="発注点"
+              required
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={reorderPoint}
+              onChange={setReorderPoint}
+              placeholder="例: 20"
+            />
+            <TextField
+              label="最小在庫数"
+              required
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={minStock}
+              onChange={setMinStock}
+              placeholder="例: 10"
+            />
           </div>
 
-          <Field label="保管温度">
-            <div className="grid grid-cols-3 gap-2">
-              {STORAGE_TEMPS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setStorageTemp(opt.value)}
-                  className={`h-12 rounded-xl border px-4 text-base font-medium transition active:scale-95 ${
-                    storageTemp === opt.value
-                      ? "border-[#00b5ad] bg-[#e6f7f6] text-[#00b5ad]"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-[#00b5ad]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="適応動物種">
-            <div className="grid grid-cols-3 gap-2">
-              {ANIMAL_TYPES.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setAnimalType(opt.value)}
-                  className={`h-12 rounded-xl border px-4 text-base font-medium transition active:scale-95 ${
-                    animalType === opt.value
-                      ? "border-[#00b5ad] bg-[#e6f7f6] text-[#00b5ad]"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-[#00b5ad]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <ButtonGroupField
+            label="保管温度"
+            value={storageTemp}
+            onChange={setStorageTemp}
+            options={STORAGE_TEMP_OPTIONS}
+          />
+          <ButtonGroupField
+            label="適応動物種"
+            value={animalType}
+            onChange={setAnimalType}
+            options={ANIMAL_TYPE_OPTIONS}
+          />
 
           <label className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 min-h-[56px]">
             <span className="text-base font-medium text-zinc-700">処方箋要</span>
@@ -320,25 +251,19 @@ export default function NewItemPage() {
             </button>
           </label>
 
-          <Field label="毒劇薬区分">
-            <input
-              type="text"
-              value={toxicClass}
-              onChange={(e) => setToxicClass(e.target.value)}
-              placeholder="例: 劇薬 / 毒薬 / 麻薬 (任意)"
-              className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextField
+            label="毒劇薬区分"
+            value={toxicClass}
+            onChange={setToxicClass}
+            placeholder="例: 劇薬 / 毒薬 / 麻薬 (任意)"
+          />
 
-          <Field label="メモ">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="任意"
-              className="min-h-[96px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
-            />
-          </Field>
+          <TextAreaField
+            label="メモ"
+            value={notes}
+            onChange={setNotes}
+            placeholder="任意"
+          />
 
           <button
             type="submit"
@@ -350,32 +275,44 @@ export default function NewItemPage() {
         </form>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
   );
 }
 
-function Field({
+function ButtonGroupField<T extends string>({
   label,
-  required,
-  children,
+  value,
+  onChange,
+  options,
 }: {
   label: string;
-  required?: boolean;
-  children: React.ReactNode;
+  value: T;
+  onChange: (v: T) => void;
+  options: ReadonlyArray<{ value: T; label: string }>;
 }) {
   return (
-    <label className="block">
-      <span className="block text-sm font-medium text-zinc-700 mb-2">
-        {label}
-        {required && <span className="text-red-600 ml-1">*</span>}
-      </span>
-      {children}
-    </label>
+    <div className="block">
+      <span className="block text-sm font-medium text-zinc-700 mb-2">{label}</span>
+      <div
+        className={`grid gap-2 ${options.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`h-12 rounded-xl border px-4 text-base font-medium transition active:scale-95 ${
+              value === opt.value
+                ? "border-[#00b5ad] bg-[#e6f7f6] text-[#00b5ad]"
+                : "border-zinc-200 bg-white text-zinc-700 hover:border-[#00b5ad]"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

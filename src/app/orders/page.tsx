@@ -1,35 +1,17 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorBanner } from "@/components/ErrorBanner";
 import { Header } from "@/components/Header";
+import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
-import { DEFAULT_CLINIC_ID } from "@/lib/clinic";
-import { useEffect, useState } from "react";
-
-type ItemRow = {
-  id: string;
-  name: string;
-  unit: string;
-  category: string;
-  price: number | null;
-  reorderPoint: number;
-  totalQuantity: number;
-};
-
-type OrderRow = {
-  id: string;
-  status: "draft" | "sent" | "received" | string;
-  supplierEmail: string | null;
-  note: string | null;
-  sentAt: string | null;
-  receivedAt: string | null;
-  createdAt: string;
-  items: Array<{
-    id: string;
-    quantity: number;
-    price: number | null;
-    item: { id: string; name: string; unit: string; category: string };
-  }>;
-};
+import { ORDER_STATUS_BADGE_CLASS, ORDER_STATUS_LABEL } from "@/constants";
+import { useClinic } from "@/hooks/useClinic";
+import { useToast } from "@/hooks/useToast";
+import * as api from "@/lib/api";
+import type { OrderStatus } from "@/constants";
+import type { OrderWithItems } from "@/types";
+import { useCallback, useEffect, useState } from "react";
 
 type DraftItem = {
   itemId: string;
@@ -41,23 +23,6 @@ type DraftItem = {
   quantity: string;
 };
 
-type ToastState = {
-  tone: "success" | "error" | "info";
-  message: string;
-} | null;
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "下書き",
-  sent: "送信済",
-  received: "受領済",
-};
-
-const STATUS_STYLE: Record<string, string> = {
-  draft: "bg-zinc-100 text-zinc-700",
-  sent: "bg-amber-100 text-amber-800",
-  received: "bg-emerald-100 text-emerald-700",
-};
-
 function formatDateTime(date: string | null): string {
   if (!date) return "—";
   const d = new Date(date);
@@ -65,62 +30,52 @@ function formatDateTime(date: string | null): string {
 }
 
 export default function OrdersPage() {
+  const { clinicId } = useClinic();
+  const { toast, showSuccess, showError, showInfo, dismiss } = useToast();
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [supplierEmail, setSupplierEmail] = useState("");
   const [note, setNote] = useState("");
-  const [orders, setOrders] = useState<OrderRow[] | null>(null);
+  const [orders, setOrders] = useState<OrderWithItems[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState<ToastState>(null);
 
-  async function loadCandidates() {
+  const loadCandidates = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/items?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}`,
-        { cache: "no-store" },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { items: ItemRow[] };
+      const data = await api.listItems({ clinicId });
       const candidates = data.items
         .filter(
           (it) => it.reorderPoint > 0 && it.totalQuantity <= it.reorderPoint,
         )
-        .map((it) => {
-          const suggested = Math.max(it.reorderPoint * 2 - it.totalQuantity, 1);
-          return {
-            itemId: it.id,
-            name: it.name,
-            unit: it.unit,
-            reorderPoint: it.reorderPoint,
-            currentStock: it.totalQuantity,
-            price: it.price,
-            quantity: String(suggested),
-          };
-        });
+        .map<DraftItem>((it) => ({
+          itemId: it.id,
+          name: it.name,
+          unit: it.unit,
+          reorderPoint: it.reorderPoint,
+          currentStock: it.totalQuantity,
+          price: it.price,
+          quantity: String(
+            Math.max(it.reorderPoint * 2 - it.totalQuantity, 1),
+          ),
+        }));
       setDraftItems(candidates);
     } catch (err) {
       setError(err instanceof Error ? err.message : "候補取得に失敗しました");
     }
-  }
+  }, [clinicId]);
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/orders?clinicId=${encodeURIComponent(DEFAULT_CLINIC_ID)}`,
-        { cache: "no-store" },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { orders: OrderRow[] };
+      const data = await api.listOrders({ clinicId });
       setOrders(data.orders);
     } catch (err) {
       setError(err instanceof Error ? err.message : "発注一覧取得に失敗しました");
     }
-  }
+  }, [clinicId]);
 
   useEffect(() => {
     loadCandidates();
     loadOrders();
-  }, []);
+  }, [loadCandidates, loadOrders]);
 
   async function createOrder() {
     const items = draftItems
@@ -130,35 +85,27 @@ export default function OrdersPage() {
           ? { itemId: d.itemId, quantity: qty, price: d.price }
           : null;
       })
-      .filter((x): x is { itemId: string; quantity: number; price: number | null } => x !== null);
+      .filter(
+        (x): x is { itemId: string; quantity: number; price: number | null } =>
+          x !== null,
+      );
     if (items.length === 0) {
-      setToast({ tone: "error", message: "発注対象がありません" });
+      showError("発注対象がありません");
       return;
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          clinicId: DEFAULT_CLINIC_ID,
-          supplierEmail: supplierEmail.trim() || null,
-          note: note.trim() || null,
-          items,
-        }),
+      await api.createOrder({
+        clinicId,
+        supplierEmail: supplierEmail.trim() || null,
+        note: note.trim() || null,
+        items,
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      setToast({ tone: "success", message: "発注書を作成しました" });
+      showSuccess("発注書を作成しました");
       setNote("");
       await Promise.all([loadCandidates(), loadOrders()]);
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "作成に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "作成に失敗しました");
     } finally {
       setBusy(false);
     }
@@ -173,29 +120,17 @@ export default function OrdersPage() {
     }
     setBusy(true);
     try {
-      const res = await fetch(`/api/orders/${orderId}/send`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ supplierEmail: target }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
+      const data = await api.sendOrder(orderId, { supplierEmail: target });
+      if (data.email.ok) {
+        showSuccess("メール送信し、ステータスを送信済にしました");
+      } else {
+        showInfo(
+          `ステータスを送信済にしました (メール: ${data.email.reason ?? "未設定"})`,
+        );
       }
-      const data = (await res.json()) as {
-        email?: { ok: boolean; skipped?: boolean; reason?: string };
-      };
-      const tone = data.email?.ok ? "success" : "info";
-      const message = data.email?.ok
-        ? "メール送信し、ステータスを送信済にしました"
-        : `ステータスを送信済にしました (メール: ${data.email?.reason ?? "未設定"})`;
-      setToast({ tone, message });
       await loadOrders();
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "送信に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "送信に失敗しました");
     } finally {
       setBusy(false);
     }
@@ -205,18 +140,11 @@ export default function OrdersPage() {
     if (!window.confirm("受領を確定し、自動で入庫します。よろしいですか?")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/orders/${orderId}/receive`, { method: "PUT" });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      setToast({ tone: "success", message: "受領処理を完了しました" });
+      await api.receiveOrder(orderId);
+      showSuccess("受領処理を完了しました");
       await Promise.all([loadCandidates(), loadOrders()]);
     } catch (err) {
-      setToast({
-        tone: "error",
-        message: err instanceof Error ? err.message : "受領に失敗しました",
-      });
+      showError(err instanceof Error ? err.message : "受領に失敗しました");
     } finally {
       setBusy(false);
     }
@@ -236,11 +164,7 @@ export default function OrdersPage() {
     <div className="flex flex-1 flex-col">
       <Header title="発注" showAlertBadge />
       <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-6 space-y-8">
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <ErrorBanner message={error} />}
 
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -251,9 +175,7 @@ export default function OrdersPage() {
           </div>
 
           {draftItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-500">
-              発注点を下回った物品はありません
-            </div>
+            <EmptyState message="発注点を下回った物品はありません" />
           ) : (
             <div className="space-y-4">
               <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
@@ -350,11 +272,9 @@ export default function OrdersPage() {
         <section>
           <h2 className="text-lg font-semibold text-zinc-900 mb-3">発注書一覧</h2>
           {orders === null ? (
-            <div className="text-sm text-zinc-500">読み込み中...</div>
+            <CenteredSpinner />
           ) : orders.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-500">
-              発注書がありません
-            </div>
+            <EmptyState message="発注書がありません" />
           ) : (
             <ul className="space-y-3">
               {orders.map((order) => (
@@ -367,10 +287,10 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-                            STATUS_STYLE[order.status] ?? "bg-zinc-100"
+                            ORDER_STATUS_BADGE_CLASS[order.status as OrderStatus] ?? "bg-zinc-100"
                           }`}
                         >
-                          {STATUS_LABEL[order.status] ?? order.status}
+                          {ORDER_STATUS_LABEL[order.status as OrderStatus] ?? order.status}
                         </span>
                         <code className="text-xs text-zinc-500">
                           {order.id.slice(-8)}
@@ -433,11 +353,7 @@ export default function OrdersPage() {
         </section>
       </main>
       {toast && (
-        <Toast
-          tone={toast.tone}
-          message={toast.message}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast tone={toast.tone} message={toast.message} onDismiss={dismiss} />
       )}
     </div>
   );
