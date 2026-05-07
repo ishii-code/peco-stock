@@ -1,5 +1,6 @@
 "use client";
 
+import { QrScanner } from "@/components/QrScanner";
 import { useEffect, useState } from "react";
 
 export type PickableItem = {
@@ -15,7 +16,52 @@ type Props = {
   selected: PickableItem | null;
   onSelect: (item: PickableItem | null) => void;
   clinicId: string;
+  onScanError?: (message: string) => void;
 };
+
+type ItemDetailResponse = {
+  item: {
+    id: string;
+    name: string;
+    unit: string;
+    category: string;
+    reorderPoint: number;
+    clinicId: string;
+    inventory: Array<{ quantity: number }>;
+  };
+};
+
+async function fetchItemAsPickable(
+  itemId: string,
+  expectedClinicId: string,
+): Promise<PickableItem | { error: string }> {
+  const res = await fetch(`/api/items/${encodeURIComponent(itemId)}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return { error: "QRコードに対応する物品が見つかりません" };
+  }
+  if (!res.ok) {
+    return { error: `物品取得に失敗しました (HTTP ${res.status})` };
+  }
+  const data = (await res.json()) as ItemDetailResponse;
+  if (data.item.clinicId !== expectedClinicId) {
+    return {
+      error: `この物品は別院（${data.item.clinicId}）に登録されています`,
+    };
+  }
+  return {
+    id: data.item.id,
+    name: data.item.name,
+    unit: data.item.unit,
+    category: data.item.category,
+    reorderPoint: data.item.reorderPoint,
+    totalQuantity: data.item.inventory.reduce(
+      (sum, inv) => sum + inv.quantity,
+      0,
+    ),
+  };
+}
 
 const CATEGORY_LABEL: Record<string, string> = {
   medical: "医薬品",
@@ -23,11 +69,33 @@ const CATEGORY_LABEL: Record<string, string> = {
   reagent: "試薬",
 };
 
-export function ItemPicker({ selected, onSelect, clinicId }: Props) {
+export function ItemPicker({
+  selected,
+  onSelect,
+  clinicId,
+  onScanError,
+}: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PickableItem[] | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanInlineError, setScanInlineError] = useState<string | null>(null);
+
+  async function handleScanned(scannedId: string) {
+    setScanBusy(true);
+    setScanInlineError(null);
+    const result = await fetchItemAsPickable(scannedId, clinicId);
+    setScanBusy(false);
+    setScannerOpen(false);
+    if ("error" in result) {
+      if (onScanError) onScanError(result.error);
+      else setScanInlineError(result.error);
+      return;
+    }
+    onSelect(result);
+  }
 
   useEffect(() => {
     if (selected) return;
@@ -99,16 +167,29 @@ export function ItemPicker({ selected, onSelect, clinicId }: Props) {
         <button
           type="button"
           onClick={() => {
-            window.alert("QRスキャン機能は次フェーズで対応予定です");
+            setScanInlineError(null);
+            setScannerOpen(true);
           }}
-          className="inline-flex h-12 min-w-[56px] items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-4 text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+          disabled={scanBusy}
+          className="inline-flex h-12 min-w-[56px] items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-4 text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95 disabled:opacity-50"
           aria-label="QRスキャン"
         >
           <span aria-hidden className="text-xl">
-            ⊞
+            {scanBusy ? "…" : "⊞"}
           </span>
         </button>
       </div>
+      {scanInlineError && (
+        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {scanInlineError}
+        </div>
+      )}
+      {scannerOpen && (
+        <QrScanner
+          onScan={handleScanned}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
       {open && (
         <div className="absolute z-20 mt-2 w-full rounded-xl border border-zinc-200 bg-white shadow-lg max-h-80 overflow-y-auto">
           {loading && (

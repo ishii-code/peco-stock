@@ -41,6 +41,14 @@ export async function PUT(
         { status: 400 },
       );
     }
+    // Basic email shape check — defends against the email lib being asked to
+    // send to a control character or junk string. Not a full RFC validator.
+    if (recipient.length > 254 || !/^\S+@\S+\.\S+$/.test(recipient)) {
+      return Response.json(
+        { error: "supplierEmail format is invalid" },
+        { status: 400 },
+      );
+    }
 
     const sendResult = await sendOrderEmail(
       { id: order.id, note: order.note, createdAt: order.createdAt },

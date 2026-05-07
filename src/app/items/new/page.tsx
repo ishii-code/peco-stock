@@ -119,9 +119,7 @@ export default function NewItemPage() {
             「{created.name}」を登録しました。QRコードを印刷して物品に貼付してください。
           </div>
           <div className="flex flex-col items-center">
-            {created.qrCode && (
-              <QrCard value={created.qrCode} label={created.name} />
-            )}
+            <QrCard value={created.id} label={created.name} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <button

@@ -1,7 +1,9 @@
 "use client";
 
+import { QrScanner } from "@/components/QrScanner";
+import { Toast } from "@/components/Toast";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ItemRow = {
   id: string;
@@ -56,6 +58,53 @@ export default function InventoryPage() {
   const [category, setCategory] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement | null>>(new Map());
+
+  function setRowRef(id: string) {
+    return (el: HTMLTableRowElement | null) => {
+      if (el) rowRefs.current.set(id, el);
+      else rowRefs.current.delete(id);
+    };
+  }
+
+  async function handleScanned(scannedId: string) {
+    setScannerOpen(false);
+    try {
+      const res = await fetch(`/api/items/${encodeURIComponent(scannedId)}`, {
+        cache: "no-store",
+      });
+      if (res.status === 404) {
+        setToast({
+          tone: "error",
+          message: "QRコードに対応する物品が見つかりません",
+        });
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { item: { id: string; name: string } };
+      setCategory("");
+      setSearch("");
+      setHighlightedId(data.item.id);
+      setToast({
+        tone: "success",
+        message: `${data.item.name} をハイライトしました`,
+      });
+      requestAnimationFrame(() => {
+        const row = rowRefs.current.get(data.item.id);
+        row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      setTimeout(() => setHighlightedId((curr) => (curr === data.item.id ? null : curr)), 4000);
+    } catch (err) {
+      setToast({
+        tone: "error",
+        message:
+          err instanceof Error ? err.message : "物品取得に失敗しました",
+      });
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +174,7 @@ export default function InventoryPage() {
       </header>
 
       <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-6">
-        <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+        <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
           <input
             type="search"
             placeholder="物品名・YJ・JANで検索"
@@ -133,6 +182,15 @@ export default function InventoryPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
           />
+          <button
+            type="button"
+            onClick={() => setScannerOpen(true)}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#00b5ad] bg-white px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+            aria-label="QRスキャン"
+          >
+            <span aria-hidden className="text-xl">⊞</span>
+            <span>QRスキャン</span>
+          </button>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -200,11 +258,17 @@ export default function InventoryPage() {
                       : expirySoon || expired
                         ? "bg-amber-50"
                         : "";
+                    const isHighlighted = row.id === highlightedId;
 
                     return (
                       <tr
                         key={row.id}
-                        className={`border-t border-zinc-100 ${rowBg}`}
+                        ref={setRowRef(row.id)}
+                        className={`border-t border-zinc-100 ${rowBg} ${
+                          isHighlighted
+                            ? "outline outline-2 outline-[#00b5ad] outline-offset-[-2px]"
+                            : ""
+                        } transition-[outline]`}
                       >
                         <td className="px-4 py-3 font-medium text-zinc-900">
                           {row.name}
@@ -275,6 +339,19 @@ export default function InventoryPage() {
           </div>
         )}
       </main>
+      {scannerOpen && (
+        <QrScanner
+          onScan={handleScanned}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
+      {toast && (
+        <Toast
+          tone={toast.tone}
+          message={toast.message}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

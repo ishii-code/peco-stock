@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { parseRequiredString } from "@/lib/validation";
 import type { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -30,13 +31,15 @@ type CreateStocktakeBody = {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CreateStocktakeBody;
-    if (typeof body.clinicId !== "string" || body.clinicId.trim() === "") {
-      return Response.json({ error: "clinicId is required" }, { status: 400 });
+    const clinicIdParsed = parseRequiredString(body.clinicId, "clinicId", 64);
+    if (!clinicIdParsed.ok) {
+      return Response.json({ error: clinicIdParsed.error }, { status: 400 });
     }
     const stocktake = await prisma.stocktake.create({
       data: {
-        clinicId: body.clinicId,
-        note: typeof body.note === "string" ? body.note : null,
+        clinicId: clinicIdParsed.value,
+        note:
+          typeof body.note === "string" ? body.note.slice(0, 1000) : null,
       },
     });
     return Response.json({ stocktake }, { status: 201 });

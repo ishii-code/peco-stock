@@ -92,6 +92,7 @@ export default function StockInPage() {
               selected={item}
               onSelect={setItem}
               clinicId={DEFAULT_CLINIC_ID}
+              onScanError={(message) => setToast({ tone: "error", message })}
             />
           </Field>
 

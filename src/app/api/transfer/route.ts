@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { parseQuantity, parseRequiredString } from "@/lib/validation";
 import type { NextRequest } from "next/server";
+
+const MAX_TRANSFER_ITEMS = 200;
 
 type TransferBody = {
   fromClinicId?: unknown;
@@ -13,18 +16,30 @@ type TransferItemInput = {
   quantity: number;
 };
 
-function parseItems(value: unknown): TransferItemInput[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
+function parseItems(
+  value: unknown,
+): { ok: true; value: TransferItemInput[] } | { ok: false; error: string } {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false, error: "items must be a non-empty array" };
+  }
+  if (value.length > MAX_TRANSFER_ITEMS) {
+    return { ok: false, error: `items exceeds maximum (${MAX_TRANSFER_ITEMS})` };
+  }
   const out: TransferItemInput[] = [];
   for (const raw of value) {
-    if (typeof raw !== "object" || raw === null) return null;
+    if (typeof raw !== "object" || raw === null) {
+      return { ok: false, error: "each item must be an object" };
+    }
     const r = raw as Record<string, unknown>;
-    if (typeof r.itemId !== "string" || r.itemId.trim() === "") return null;
-    if (typeof r.quantity !== "number" || !Number.isFinite(r.quantity) || r.quantity <= 0)
-      return null;
-    out.push({ itemId: r.itemId, quantity: r.quantity });
+    const idParsed = parseRequiredString(r.itemId, "items[].itemId", 64);
+    if (!idParsed.ok) return { ok: false, error: idParsed.error };
+    const qtyParsed = parseQuantity(r.quantity, "items[].quantity", {
+      positive: true,
+    });
+    if (!qtyParsed.ok) return { ok: false, error: qtyParsed.error };
+    out.push({ itemId: idParsed.value, quantity: qtyParsed.value });
   }
-  return out;
+  return { ok: true, value: out };
 }
 
 export async function GET(request: NextRequest) {
@@ -50,28 +65,29 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as TransferBody;
-    if (typeof body.fromClinicId !== "string" || body.fromClinicId.trim() === "") {
-      return Response.json({ error: "fromClinicId is required" }, { status: 400 });
+    const fromParsed = parseRequiredString(body.fromClinicId, "fromClinicId", 64);
+    if (!fromParsed.ok) {
+      return Response.json({ error: fromParsed.error }, { status: 400 });
     }
-    if (typeof body.toClinicId !== "string" || body.toClinicId.trim() === "") {
-      return Response.json({ error: "toClinicId is required" }, { status: 400 });
+    const toParsed = parseRequiredString(body.toClinicId, "toClinicId", 64);
+    if (!toParsed.ok) {
+      return Response.json({ error: toParsed.error }, { status: 400 });
     }
-    if (body.fromClinicId === body.toClinicId) {
+    if (fromParsed.value === toParsed.value) {
       return Response.json(
         { error: "fromClinicId and toClinicId must differ" },
         { status: 400 },
       );
     }
-    const items = parseItems(body.items);
-    if (!items) {
-      return Response.json(
-        { error: "items must be a non-empty array of {itemId, quantity}" },
-        { status: 400 },
-      );
+    const itemsParsed = parseItems(body.items);
+    if (!itemsParsed.ok) {
+      return Response.json({ error: itemsParsed.error }, { status: 400 });
     }
-    const note = typeof body.note === "string" ? body.note : null;
-    const fromClinicId = body.fromClinicId;
-    const toClinicId = body.toClinicId;
+    const items = itemsParsed.value;
+    const note =
+      typeof body.note === "string" ? body.note.slice(0, 1000) : null;
+    const fromClinicId = fromParsed.value;
+    const toClinicId = toParsed.value;
 
     const itemIds = items.map((i) => i.itemId);
     const sourceInventory = await prisma.inventory.findMany({

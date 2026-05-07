@@ -348,11 +348,9 @@ export default function ItemDetailPage({
             )}
           </section>
 
-          {item.qrCode && (
-            <div className="flex justify-center md:justify-start">
-              <QrCard value={item.qrCode} label={item.name} />
-            </div>
-          )}
+          <div className="flex justify-center md:justify-start">
+            <QrCard value={item.id} label={item.name} />
+          </div>
         </div>
 
         <section>

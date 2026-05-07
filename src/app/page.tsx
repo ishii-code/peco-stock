@@ -163,7 +163,9 @@ export default function Home() {
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <a
-              href="#"
+              href="http://localhost:3001"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-[#00b5ad] min-h-[64px]"
             >
               <div>
@@ -177,7 +179,9 @@ export default function Home() {
               </span>
             </a>
             <a
-              href="#"
+              href="http://localhost:3000"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-[#00b5ad] min-h-[64px]"
             >
               <div>

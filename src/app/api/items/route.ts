@@ -1,6 +1,11 @@
 import { createId } from "@/lib/cuid";
 import { listItemsWithStock } from "@/lib/items";
 import { prisma } from "@/lib/prisma";
+import {
+  parsePrice,
+  parseRequiredString,
+  parseStockLevel,
+} from "@/lib/validation";
 import type { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -47,8 +52,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CreateItemBody;
 
-    if (typeof body.name !== "string" || body.name.trim() === "") {
-      return Response.json({ error: "name is required" }, { status: 400 });
+    const nameParsed = parseRequiredString(body.name, "name", 200);
+    if (!nameParsed.ok) {
+      return Response.json({ error: nameParsed.error }, { status: 400 });
     }
     if (typeof body.category !== "string" || !VALID_CATEGORIES.has(body.category)) {
       return Response.json(
@@ -56,11 +62,28 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (typeof body.unit !== "string" || body.unit.trim() === "") {
-      return Response.json({ error: "unit is required" }, { status: 400 });
+    const unitParsed = parseRequiredString(body.unit, "unit", 20);
+    if (!unitParsed.ok) {
+      return Response.json({ error: unitParsed.error }, { status: 400 });
     }
-    if (typeof body.clinicId !== "string" || body.clinicId.trim() === "") {
-      return Response.json({ error: "clinicId is required" }, { status: 400 });
+    const clinicIdParsed = parseRequiredString(body.clinicId, "clinicId", 64);
+    if (!clinicIdParsed.ok) {
+      return Response.json({ error: clinicIdParsed.error }, { status: 400 });
+    }
+
+    const minStockRaw = body.minStock ?? 0;
+    const reorderPointRaw = body.reorderPoint ?? 0;
+    const minStockParsed = parseStockLevel(minStockRaw, "minStock");
+    if (!minStockParsed.ok) {
+      return Response.json({ error: minStockParsed.error }, { status: 400 });
+    }
+    const reorderParsed = parseStockLevel(reorderPointRaw, "reorderPoint");
+    if (!reorderParsed.ok) {
+      return Response.json({ error: reorderParsed.error }, { status: 400 });
+    }
+    const priceParsed = parsePrice(body.price);
+    if (!priceParsed.ok) {
+      return Response.json({ error: priceParsed.error }, { status: 400 });
     }
 
     const storageTemp =
@@ -74,24 +97,31 @@ export async function POST(request: NextRequest) {
 
     const item = await prisma.item.create({
       data: {
-        name: body.name.trim(),
+        name: nameParsed.value,
         category: body.category,
-        unit: body.unit.trim(),
-        clinicId: body.clinicId.trim(),
-        price: typeof body.price === "number" ? body.price : null,
-        yjCode: typeof body.yjCode === "string" ? body.yjCode : null,
-        janCode: typeof body.janCode === "string" ? body.janCode : null,
-        minStock: typeof body.minStock === "number" ? body.minStock : 0,
-        reorderPoint:
-          typeof body.reorderPoint === "number" ? body.reorderPoint : 0,
+        unit: unitParsed.value,
+        clinicId: clinicIdParsed.value,
+        price: priceParsed.value,
+        yjCode:
+          typeof body.yjCode === "string" ? body.yjCode.slice(0, 50) : null,
+        janCode:
+          typeof body.janCode === "string" ? body.janCode.slice(0, 50) : null,
+        minStock: minStockParsed.value,
+        reorderPoint: reorderParsed.value,
         storageTemp,
         animalType,
         requiresPrescription: body.requiresPrescription === true,
         toxicClass:
-          typeof body.toxicClass === "string" ? body.toxicClass : null,
+          typeof body.toxicClass === "string"
+            ? body.toxicClass.slice(0, 50)
+            : null,
         qrCode: createId(),
-        imageUrl: typeof body.imageUrl === "string" ? body.imageUrl : null,
-        notes: typeof body.notes === "string" ? body.notes : null,
+        imageUrl:
+          typeof body.imageUrl === "string"
+            ? body.imageUrl.slice(0, 500)
+            : null,
+        notes:
+          typeof body.notes === "string" ? body.notes.slice(0, 2000) : null,
       },
     });
 

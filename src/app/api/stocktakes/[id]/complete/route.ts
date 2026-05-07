@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { parseQuantity, parseRequiredString } from "@/lib/validation";
 import type { NextRequest } from "next/server";
+
+const MAX_STOCKTAKE_ENTRIES = 5000;
 
 type CompleteBody = {
   entries?: unknown;
@@ -10,18 +13,34 @@ type EntryInput = {
   actual: number;
 };
 
-function parseEntries(value: unknown): EntryInput[] | null {
-  if (!Array.isArray(value)) return null;
+function parseEntries(
+  value: unknown,
+): { ok: true; value: EntryInput[] } | { ok: false; error: string } {
+  if (!Array.isArray(value)) {
+    return { ok: false, error: "entries must be an array" };
+  }
+  if (value.length > MAX_STOCKTAKE_ENTRIES) {
+    return {
+      ok: false,
+      error: `entries exceeds maximum (${MAX_STOCKTAKE_ENTRIES})`,
+    };
+  }
   const out: EntryInput[] = [];
   for (const raw of value) {
-    if (typeof raw !== "object" || raw === null) return null;
-    const itemId = (raw as Record<string, unknown>).itemId;
-    const actual = (raw as Record<string, unknown>).actual;
-    if (typeof itemId !== "string" || itemId.trim() === "") return null;
-    if (typeof actual !== "number" || Number.isNaN(actual)) return null;
-    out.push({ itemId, actual });
+    if (typeof raw !== "object" || raw === null) {
+      return { ok: false, error: "each entry must be an object" };
+    }
+    const r = raw as Record<string, unknown>;
+    const idParsed = parseRequiredString(r.itemId, "entries[].itemId", 64);
+    if (!idParsed.ok) return { ok: false, error: idParsed.error };
+    // actual stock count: 0 is legitimate (depleted), but no negatives or NaN
+    const qtyParsed = parseQuantity(r.actual, "entries[].actual", {
+      positive: false,
+    });
+    if (!qtyParsed.ok) return { ok: false, error: qtyParsed.error };
+    out.push({ itemId: idParsed.value, actual: qtyParsed.value });
   }
-  return out;
+  return { ok: true, value: out };
 }
 
 export async function PUT(
@@ -31,13 +50,11 @@ export async function PUT(
   try {
     const { id } = await ctx.params;
     const body = (await request.json()) as CompleteBody;
-    const entries = parseEntries(body.entries);
-    if (!entries) {
-      return Response.json(
-        { error: "entries must be [{itemId, actual}]" },
-        { status: 400 },
-      );
+    const entriesParsed = parseEntries(body.entries);
+    if (!entriesParsed.ok) {
+      return Response.json({ error: entriesParsed.error }, { status: 400 });
     }
+    const entries = entriesParsed.value;
 
     const stocktake = await prisma.stocktake.findUnique({ where: { id } });
     if (!stocktake) {

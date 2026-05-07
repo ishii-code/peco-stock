@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import {
+  parseDateOrNull,
+  parseQuantity,
+  parseRequiredString,
+} from "@/lib/validation";
 import type { NextRequest } from "next/server";
 
 const VALID_TYPES = new Set(["in", "out", "move", "discard", "adjust"]);
@@ -51,11 +56,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CreateTransactionBody;
 
-    if (typeof body.itemId !== "string" || body.itemId.trim() === "") {
-      return Response.json({ error: "itemId is required" }, { status: 400 });
+    const itemIdParsed = parseRequiredString(body.itemId, "itemId", 64);
+    if (!itemIdParsed.ok) {
+      return Response.json({ error: itemIdParsed.error }, { status: 400 });
     }
-    if (typeof body.clinicId !== "string" || body.clinicId.trim() === "") {
-      return Response.json({ error: "clinicId is required" }, { status: 400 });
+    const clinicIdParsed = parseRequiredString(body.clinicId, "clinicId", 64);
+    if (!clinicIdParsed.ok) {
+      return Response.json({ error: clinicIdParsed.error }, { status: 400 });
     }
     if (typeof body.type !== "string" || !VALID_TYPES.has(body.type)) {
       return Response.json(
@@ -63,31 +70,62 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (typeof body.quantity !== "number" || Number.isNaN(body.quantity)) {
-      return Response.json(
-        { error: "quantity must be a number" },
-        { status: 400 },
-      );
+    // adjust may set quantity = 0 (full depletion); other types must be > 0
+    const isAdjust = body.type === "adjust";
+    const qtyParsed = parseQuantity(body.quantity, "quantity", {
+      positive: !isAdjust,
+    });
+    if (!qtyParsed.ok) {
+      return Response.json({ error: qtyParsed.error }, { status: 400 });
+    }
+    const expiryParsed = parseDateOrNull(body.expiryDate, "expiryDate");
+    if (!expiryParsed.ok) {
+      return Response.json({ error: expiryParsed.error }, { status: 400 });
     }
 
-    const itemId = body.itemId;
-    const clinicId = body.clinicId;
+    const itemId = itemIdParsed.value;
+    const clinicId = clinicIdParsed.value;
     const type = body.type;
-    const quantity = body.quantity;
+    const quantity = qtyParsed.value;
     const lotNumber =
       typeof body.lotNumber === "string" && body.lotNumber.trim() !== ""
-        ? body.lotNumber
+        ? body.lotNumber.trim().slice(0, 100)
         : null;
-    const expiryDate =
-      typeof body.expiryDate === "string" && body.expiryDate !== ""
-        ? new Date(body.expiryDate)
-        : null;
+    const expiryDate = expiryParsed.value;
     const location =
-      typeof body.location === "string" ? body.location : null;
-    const note = typeof body.note === "string" ? body.note : null;
+      typeof body.location === "string" ? body.location.slice(0, 200) : null;
+    const note =
+      typeof body.note === "string" ? body.note.slice(0, 1000) : null;
     const patientId =
-      typeof body.patientId === "string" ? body.patientId : null;
-    const vetId = typeof body.vetId === "string" ? body.vetId : null;
+      typeof body.patientId === "string"
+        ? body.patientId.slice(0, 64)
+        : null;
+    const vetId =
+      typeof body.vetId === "string" ? body.vetId.slice(0, 64) : null;
+
+    // For out/discard, refuse if requested quantity exceeds available stock.
+    // This both prevents Transaction-vs-Inventory audit-trail mismatch and
+    // makes negative-quantity exploits impossible (already rejected above).
+    if (type === "out" || type === "discard") {
+      const lots = await prisma.inventory.findMany({
+        where: {
+          itemId,
+          clinicId,
+          ...(lotNumber ? { lotNumber } : {}),
+          quantity: { gt: 0 },
+        },
+        select: { quantity: true },
+      });
+      const available = lots.reduce((sum, l) => sum + l.quantity, 0);
+      if (available < quantity) {
+        return Response.json(
+          {
+            error: `Insufficient stock (have ${available}, want ${quantity})`,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
