@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7fafa;
+  --foreground: #0f1f1f;
+  --peco-primary: #00b5ad;
+  --peco-primary-dark: #008f88;
+  --peco-primary-soft: #e6f7f6;
+  --peco-warning: #f59e0b;
+  --peco-warning-soft: #fef3c7;
+  --peco-danger: #dc2626;
+  --peco-danger-soft: #fee2e2;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-peco: var(--peco-primary);
+  --color-peco-dark: var(--peco-primary-dark);
+  --color-peco-soft: var(--peco-primary-soft);
+  --color-peco-warning: var(--peco-warning);
+  --color-peco-warning-soft: var(--peco-warning-soft);
+  --color-peco-danger: var(--peco-danger);
+  --color-peco-danger-soft: var(--peco-danger-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    var(--font-geist-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP",
+    Meiryo,
+    sans-serif;
 }

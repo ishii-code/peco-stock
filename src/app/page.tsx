@@ -1,65 +1,160 @@
-import Image from "next/image";
+import Link from "next/link";
+
+type MenuCard = {
+  href: string;
+  title: string;
+  description: string;
+  emoji: string;
+};
+
+const MENU: MenuCard[] = [
+  {
+    href: "/inventory",
+    title: "在庫一覧",
+    description: "現在庫数・有効期限・発注点をまとめて確認",
+    emoji: "📦",
+  },
+  {
+    href: "/inventory?action=in",
+    title: "入庫",
+    description: "納品物品の入庫登録（ロット・期限）",
+    emoji: "📥",
+  },
+  {
+    href: "/inventory?action=out",
+    title: "出庫",
+    description: "診療・処置で使用した物品を記録",
+    emoji: "📤",
+  },
+  {
+    href: "/stocktake",
+    title: "棚卸",
+    description: "実在庫と帳簿在庫の差異を記録",
+    emoji: "📋",
+  },
+  {
+    href: "/orders",
+    title: "発注",
+    description: "発注点を下回った物品の自動発注案",
+    emoji: "🛒",
+  },
+  {
+    href: "/reports",
+    title: "レポート",
+    description: "消費量・廃棄・期限切れの集計",
+    emoji: "📊",
+  },
+  {
+    href: "/settings",
+    title: "設定",
+    description: "クリニック・スタッフ・通知設定",
+    emoji: "⚙️",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="flex flex-1 flex-col bg-[--background]">
+      <header className="bg-white border-b border-zinc-200">
+        <div className="mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#00b5ad] text-white text-lg font-bold"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              P
+            </span>
+            <div>
+              <h1 className="text-xl font-bold text-[#00b5ad] tracking-tight">
+                PecoStock
+              </h1>
+              <p className="text-xs text-zinc-500">
+                PECO動物病院 在庫管理システム
+              </p>
+            </div>
+          </div>
+          <nav className="text-sm text-zinc-600">
+            <span className="hidden sm:inline">PECO Animal Hospital</span>
+          </nav>
+        </div>
+      </header>
+
+      <main className="flex-1 mx-auto w-full max-w-6xl px-6 py-10">
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold text-zinc-900">
+            メニュー
+          </h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            iPad での操作に最適化されています。
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+        </section>
+
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {MENU.map((card) => (
+            <li key={card.href}>
+              <Link
+                href={card.href}
+                className="block min-h-[120px] rounded-2xl bg-white border border-zinc-200 p-5 transition hover:border-[#00b5ad] hover:shadow-md active:scale-[0.99]"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl" aria-hidden>
+                    {card.emoji}
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-zinc-900">
+                      {card.title}
+                    </h3>
+                    <p className="text-sm text-zinc-500 mt-1">
+                      {card.description}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        <section className="mt-12 border-t border-zinc-200 pt-8">
+          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">
+            他システム
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <a
+              href="#"
+              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-[#00b5ad] min-h-[64px]"
+            >
+              <div>
+                <div className="font-medium text-zinc-900">診断支援</div>
+                <div className="text-xs text-zinc-500">
+                  Diagnosis Assistant
+                </div>
+              </div>
+              <span className="text-zinc-400" aria-hidden>
+                →
+              </span>
+            </a>
+            <a
+              href="#"
+              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-[#00b5ad] min-h-[64px]"
+            >
+              <div>
+                <div className="font-medium text-zinc-900">SFA</div>
+                <div className="text-xs text-zinc-500">Sales Force</div>
+              </div>
+              <span className="text-zinc-400" aria-hidden>
+                →
+              </span>
+            </a>
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-zinc-200 bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-4 text-xs text-zinc-500 flex justify-between">
+          <span>© PECO Animal Hospital</span>
+          <span>v0.1 · Phase 0</span>
+        </div>
+      </footer>
     </div>
   );
 }

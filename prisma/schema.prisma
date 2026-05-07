@@ -1,0 +1,139 @@
+// PecoStock — PECO動物病院向け在庫管理システム
+// Prisma schema (Phase 0)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Item {
+  id                   String        @id @default(cuid())
+  name                 String
+  category             String
+  unit                 String
+  price                Float?
+  yjCode               String?
+  janCode              String?
+  minStock             Int           @default(0)
+  reorderPoint         Int           @default(0)
+  storageTemp          String        @default("normal")
+  animalType           String        @default("both")
+  requiresPrescription Boolean       @default(false)
+  toxicClass           String?
+  qrCode               String?
+  imageUrl             String?
+  notes                String?
+  clinicId             String
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  inventory            Inventory[]
+  transactions         Transaction[]
+  alerts               Alert[]
+  orderItems           OrderItem[]
+
+  @@index([clinicId])
+  @@index([category])
+}
+
+model Inventory {
+  id         String    @id @default(cuid())
+  itemId     String
+  item       Item      @relation(fields: [itemId], references: [id])
+  clinicId   String
+  quantity   Float
+  lotNumber  String?
+  expiryDate DateTime?
+  location   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([itemId])
+  @@index([clinicId])
+  @@index([expiryDate])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id])
+  clinicId  String
+  type      String
+  quantity  Float
+  lotNumber String?
+  patientId String?
+  vetId     String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+  @@index([clinicId])
+  @@index([type])
+}
+
+model Alert {
+  id          String    @id @default(cuid())
+  itemId      String
+  item        Item      @relation(fields: [itemId], references: [id])
+  clinicId    String
+  type        String
+  triggeredAt DateTime  @default(now())
+  resolvedAt  DateTime?
+  notifiedTo  String?
+
+  @@index([itemId])
+  @@index([clinicId])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  clinicId      String
+  status        String      @default("draft")
+  supplierEmail String?
+  note          String?
+  sentAt        DateTime?
+  receivedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  items         OrderItem[]
+
+  @@index([clinicId])
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id])
+  itemId   String
+  item     Item   @relation(fields: [itemId], references: [id])
+  quantity Float
+  price    Float?
+
+  @@index([orderId])
+  @@index([itemId])
+}
+
+model Stocktake {
+  id          String           @id @default(cuid())
+  clinicId    String
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+  note        String?
+  entries     StocktakeEntry[]
+
+  @@index([clinicId])
+}
+
+model StocktakeEntry {
+  id          String    @id @default(cuid())
+  stocktakeId String
+  stocktake   Stocktake @relation(fields: [stocktakeId], references: [id])
+  itemId      String
+  expected    Float
+  actual      Float
+  diff        Float
+
+  @@index([stocktakeId])
+}
