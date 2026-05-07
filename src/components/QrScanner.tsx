@@ -8,6 +8,39 @@ type Props = {
   onClose: () => void;
 };
 
+// Tear down the scanner cleanly. Two concerns beyond a plain `scanner.stop()`:
+//   1. AbortError: detaching srcObject before stop() avoids a follow-on
+//      play()/abort cycle that surfaces as an unhandled rejection in the
+//      console.
+//   2. Camera release: explicitly stopping each MediaStreamTrack frees the
+//      camera immediately so the OS-level indicator light goes off, instead
+//      of waiting for GC.
+async function stopScanner(scanner: Html5Qrcode): Promise<void> {
+  try {
+    const video = document.querySelector(
+      "#qr-reader video",
+    ) as HTMLVideoElement | null;
+    if (video) {
+      const stream = video.srcObject;
+      if (stream instanceof MediaStream) {
+        for (const track of stream.getTracks()) {
+          try {
+            track.stop();
+          } catch {
+            // ignore: track may already be ended
+          }
+        }
+      }
+      video.srcObject = null;
+    }
+    if (scanner.isScanning) {
+      await scanner.stop();
+    }
+  } catch {
+    // AbortError and similar shutdown-time exceptions are noise here
+  }
+}
+
 export function QrScanner({ onScan, onClose }: Props) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -40,7 +73,7 @@ export function QrScanner({ onScan, onClose }: Props) {
         if (cancelled) {
           // Effect was already cleaned up while start was in-flight.
           // Now that the camera is actually running, tear it down.
-          scanner.stop().catch(() => {});
+          void stopScanner(scanner);
           return;
         }
         setIsRunning(true);
@@ -53,26 +86,22 @@ export function QrScanner({ onScan, onClose }: Props) {
 
     return () => {
       cancelled = true;
+      // If start has resolved, isScanning is true → stopScanner will stop it.
+      // If not, the .then handler above will see `cancelled` and call
+      // stopScanner once start resolves.
       if (scanner.isScanning) {
-        // Already-running case: stop now.
-        scanner.stop().catch(() => {});
+        void stopScanner(scanner);
       }
-      // Not-yet-started case: the .then handler above will see `cancelled`
-      // and stop once start() resolves.
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     const scanner = scannerRef.current;
-    if (scanner && scanner.isScanning) {
-      scanner
-        .stop()
-        .then(() => onClose())
-        .catch(() => onClose());
-    } else {
-      onClose();
+    if (scanner) {
+      await stopScanner(scanner);
     }
+    onClose();
   };
 
   return (
