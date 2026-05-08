@@ -3,6 +3,7 @@
 import * as api from "@/lib/api";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PecoHeader } from "@/components/peco";
 
 type MenuCard = {
   href: string;
@@ -90,29 +91,17 @@ export default function Home() {
 
   return (
     <div className="flex flex-1 flex-col bg-[--background]">
-      <header className="bg-white border-b border-zinc-200">
-        <div className="mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-peco-secondary text-white text-lg font-bold"
-            >
-              P
-            </span>
-            <div>
-              <h1 className="text-xl font-bold text-peco-secondary tracking-tight">
-                PecoStock
-              </h1>
-              <p className="text-xs text-zinc-500">
-                PECO動物病院 在庫管理システム
-              </p>
-            </div>
-          </div>
-          <nav className="text-sm text-zinc-600">
-            <span className="hidden sm:inline">PECO Animal Hospital</span>
-          </nav>
-        </div>
-      </header>
+      <PecoHeader
+        logoHref="/"
+        logoSubtitle="在庫管理システム"
+        showAlertBell={false}
+        showUserMenu={false}
+        rightSlot={
+          <span className="hidden text-sm text-peco-text-secondary sm:inline">
+            PECO Animal Hospital
+          </span>
+        }
+      />
 
       <main className="flex-1 mx-auto w-full max-w-6xl px-6 py-10">
         <section className="mb-8">

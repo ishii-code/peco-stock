@@ -5,6 +5,7 @@ import { ErrorBanner } from "@/components/ErrorBanner";
 import { QrScanner } from "@/components/QrScanner";
 import { CenteredSpinner } from "@/components/Spinner";
 import { Toast } from "@/components/Toast";
+import { PecoHeader } from "@/components/peco";
 import { CATEGORY_LABEL, DAY_MS } from "@/constants";
 import { useClinic } from "@/hooks/useClinic";
 import { useToast } from "@/hooks/useToast";
@@ -135,22 +136,16 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-1 flex-col bg-[--background]">
-      <header className="bg-white border-b border-zinc-200">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 min-h-[48px]">
-            <span
-              aria-hidden
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-peco-secondary text-white text-lg font-bold"
-            >
-              P
-            </span>
-            <span className="text-lg font-bold text-peco-secondary">PecoStock</span>
-          </Link>
-          <h1 className="text-base sm:text-lg font-semibold text-zinc-900">
+      <PecoHeader
+        logoHref="/"
+        showAlertBell={false}
+        showUserMenu={false}
+        rightSlot={
+          <h1 className="text-base sm:text-lg font-semibold text-peco-text-primary">
             在庫一覧
           </h1>
-        </div>
-      </header>
+        }
+      />
 
       <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-6">
         <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
