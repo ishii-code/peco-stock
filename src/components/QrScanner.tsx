@@ -108,7 +108,7 @@ export function QrScanner({ onScan, onClose }: Props) {
     <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex flex-col items-center justify-center">
       <div className="bg-white rounded-2xl p-4 w-full max-w-sm mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold" style={{ color: "#00B5AD" }}>
+          <h2 className="text-lg font-bold" style={{ color: "var(--peco-secondary)" }}>
             QRスキャン
           </h2>
           <button

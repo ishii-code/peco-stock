@@ -6,7 +6,7 @@ type Props = {
 export function EmptyState({ message, className }: Props) {
   return (
     <div
-      className={`rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-500 ${className ?? ""}`}
+      className={`rounded-2xl border border-dashed border-peco-gray-300 bg-peco-bg py-10 text-center text-sm text-peco-text-muted ${className ?? ""}`}
     >
       {message}
     </div>

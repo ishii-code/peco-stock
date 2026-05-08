@@ -1,0 +1,62 @@
+:root {
+  /* Primary（メインカラー：イエロー） */
+  --peco-primary: #FCB900;
+  --peco-primary-dark: #E0A500;
+  --peco-primary-light: #FFF9E6;
+  --peco-primary-subtle: #FFFCF0;
+
+  /* Secondary（サブカラー：オレンジ） */
+  --peco-secondary: #FF6900;
+  --peco-secondary-dark: #E55E00;
+  --peco-secondary-light: #FFF0E6;
+
+  /* Background / Text */
+  --peco-bg: #FFFFFF;
+  --peco-text-primary: #1A1A1A;
+  --peco-text-secondary: #555555;
+  --peco-text-muted: #888888;
+
+  /* Semantic */
+  --peco-success: #27AE60;
+  --peco-success-light: #E8F8EE;
+  --peco-warning: #F39C12;
+  --peco-warning-light: #FEF9E7;
+  --peco-danger: #E74C3C;
+  --peco-danger-light: #FDEDEC;
+  --peco-info: #2980B9;
+  --peco-info-light: #EBF5FB;
+
+  /* Triage */
+  --peco-triage-green: #27AE60;
+  --peco-triage-yellow: #F39C12;
+  --peco-triage-red: #E74C3C;
+
+  /* Neutral */
+  --peco-gray-900: #1A1A2E;
+  --peco-gray-700: #374151;
+  --peco-gray-500: #6B7280;
+  --peco-gray-300: #D1D5DB;
+  --peco-gray-100: #F3F4F6;
+  --peco-gray-50: #F9FAFB;
+  --peco-white: #FFFFFF;
+
+  /* Typography */
+  --peco-font-sans: 'Noto Sans JP', 'Inter', sans-serif;
+  --peco-text-xs: 12px;
+  --peco-text-sm: 14px;
+  --peco-text-base: 16px;
+  --peco-text-lg: 18px;
+  --peco-text-xl: 20px;
+  --peco-text-2xl: 24px;
+
+  /* Spacing */
+  --peco-radius-sm: 6px;
+  --peco-radius-md: 10px;
+  --peco-radius-lg: 16px;
+  --peco-radius-xl: 24px;
+
+  /* Shadow */
+  --peco-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --peco-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+  --peco-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+}

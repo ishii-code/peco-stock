@@ -175,7 +175,7 @@ export default function TransferPage() {
             type="button"
             onClick={submit}
             disabled={!canSubmit}
-            className="h-14 w-full rounded-xl bg-[#00b5ad] text-base font-semibold text-white hover:bg-[#008f88] disabled:bg-zinc-300"
+            className="h-14 w-full rounded-xl bg-peco-secondary text-base font-semibold text-white hover:bg-peco-secondary-dark disabled:bg-zinc-300"
           >
             {submitting ? "移動中..." : "移動する"}
           </button>
@@ -257,7 +257,7 @@ function ClinicField({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+          className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
         >
           {allowEmpty && <option value="">— 選択 —</option>}
           {clinics.map((c) => (
@@ -272,7 +272,7 @@ function ClinicField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="例: clinic-2"
-          className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+          className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
         />
       )}
     </label>

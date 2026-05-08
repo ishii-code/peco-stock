@@ -5,9 +5,9 @@ type Props = {
 };
 
 const TONE_CLASS: Record<NonNullable<Props["tone"]>, string> = {
-  error: "border-red-200 bg-red-50 text-red-700",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  info: "border-zinc-200 bg-zinc-50 text-zinc-700",
+  error: "border-peco-danger/30 bg-peco-danger-light text-peco-danger",
+  warning: "border-peco-warning/30 bg-peco-warning-light text-peco-warning",
+  info: "border-peco-info/30 bg-peco-info-light text-peco-info",
 };
 
 export function ErrorBanner({ message, tone = "error", className }: Props) {

@@ -164,7 +164,7 @@ export default function ItemDetailPage({
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-peco-secondary bg-white px-4 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95"
                 >
                   編集
                 </button>
@@ -205,7 +205,7 @@ export default function ItemDetailPage({
                     type="button"
                     onClick={save}
                     disabled={saving}
-                    className="flex-1 h-12 rounded-xl bg-[#00b5ad] text-sm font-semibold text-white hover:bg-[#008f88] disabled:bg-zinc-300"
+                    className="flex-1 h-12 rounded-xl bg-peco-secondary text-sm font-semibold text-white hover:bg-peco-secondary-dark disabled:bg-zinc-300"
                   >
                     {saving ? "保存中..." : "保存"}
                   </button>
@@ -221,7 +221,7 @@ export default function ItemDetailPage({
             ) : (
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <Info label="現在庫">
-                  <span className="text-2xl font-bold text-[#00b5ad] tabular-nums">
+                  <span className="text-2xl font-bold text-peco-secondary tabular-nums">
                     {totalQuantity}
                   </span>{" "}
                   {item.unit}
@@ -367,7 +367,7 @@ export default function ItemDetailPage({
 
         <Link
           href="/inventory"
-          className="inline-flex items-center text-sm text-[#00b5ad] hover:underline"
+          className="inline-flex items-center text-sm text-peco-secondary hover:underline"
         >
           ← 在庫一覧へ戻る
         </Link>

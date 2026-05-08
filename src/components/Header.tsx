@@ -50,11 +50,11 @@ export function Header({
         <Link href="/" className="flex items-center gap-2 min-h-[48px]">
           <span
             aria-hidden
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#00b5ad] text-white text-base font-bold"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-peco-secondary text-white text-base font-bold"
           >
             P
           </span>
-          <span className="hidden sm:inline text-lg font-bold text-[#00b5ad]">
+          <span className="hidden sm:inline text-lg font-bold text-peco-secondary">
             PecoStock
           </span>
         </Link>
@@ -64,7 +64,7 @@ export function Header({
         {showAlertBadge && (
           <Link
             href="/alerts"
-            className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-200 bg-white hover:border-[#00b5ad] active:scale-95"
+            className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-200 bg-white hover:border-peco-secondary active:scale-95"
             aria-label="アラート"
           >
             <span aria-hidden className="text-xl">

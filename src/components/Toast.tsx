@@ -12,7 +12,7 @@ type ToastProps = {
 };
 
 const TONE_STYLES: Record<Tone, string> = {
-  success: "bg-[#00b5ad] text-white",
+  success: "bg-peco-secondary text-white",
   error: "bg-red-600 text-white",
   info: "bg-zinc-800 text-white",
 };

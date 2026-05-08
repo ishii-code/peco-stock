@@ -32,7 +32,7 @@ import {
 } from "recharts";
 
 const CATEGORY_COLOR: Record<string, string> = {
-  medical: "#00b5ad",
+  medical: "#FF6900",
   consumable: "#f59e0b",
   reagent: "#7c3aed",
 };
@@ -118,14 +118,14 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={() => exportCsv("inventory")}
-            className="inline-flex h-12 items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+            className="inline-flex h-12 items-center justify-center rounded-xl border border-peco-secondary bg-white px-4 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95"
           >
             在庫CSV出力
           </button>
           <button
             type="button"
             onClick={() => exportCsv("transactions")}
-            className="inline-flex h-12 items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+            className="inline-flex h-12 items-center justify-center rounded-xl border border-peco-secondary bg-white px-4 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95"
           >
             入出庫CSV出力（期間）
           </button>
@@ -186,7 +186,7 @@ export default function ReportsPage() {
                   <Line
                     type="monotone"
                     dataKey="quantity"
-                    stroke="#00b5ad"
+                    stroke="#FF6900"
                     strokeWidth={2}
                     dot={{ r: 4 }}
                   />
@@ -308,7 +308,7 @@ export default function ReportsPage() {
                       <td className="px-4 py-3 text-right tabular-nums">
                         {row.stock} {row.unit}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-[#00b5ad]">
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold text-peco-secondary">
                         {row.turnover}
                       </td>
                     </tr>

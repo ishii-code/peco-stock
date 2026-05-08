@@ -1,41 +1,95 @@
 @import "tailwindcss";
-
-:root {
-  --background: #f7fafa;
-  --foreground: #0f1f1f;
-  --peco-primary: #00b5ad;
-  --peco-primary-dark: #008f88;
-  --peco-primary-soft: #e6f7f6;
-  --peco-warning: #f59e0b;
-  --peco-warning-soft: #fef3c7;
-  --peco-danger: #dc2626;
-  --peco-danger-soft: #fee2e2;
-}
+@import "../styles/tokens.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-peco: var(--peco-primary);
-  --color-peco-dark: var(--peco-primary-dark);
-  --color-peco-soft: var(--peco-primary-soft);
+  /* PECO design system colors */
+  --color-peco-primary: var(--peco-primary);
+  --color-peco-primary-dark: var(--peco-primary-dark);
+  --color-peco-primary-light: var(--peco-primary-light);
+  --color-peco-primary-subtle: var(--peco-primary-subtle);
+
+  --color-peco-secondary: var(--peco-secondary);
+  --color-peco-secondary-dark: var(--peco-secondary-dark);
+  --color-peco-secondary-light: var(--peco-secondary-light);
+
+  --color-peco-bg: var(--peco-bg);
+  --color-peco-text-primary: var(--peco-text-primary);
+  --color-peco-text-secondary: var(--peco-text-secondary);
+  --color-peco-text-muted: var(--peco-text-muted);
+
+  --color-peco-success: var(--peco-success);
+  --color-peco-success-light: var(--peco-success-light);
   --color-peco-warning: var(--peco-warning);
-  --color-peco-warning-soft: var(--peco-warning-soft);
+  --color-peco-warning-light: var(--peco-warning-light);
   --color-peco-danger: var(--peco-danger);
-  --color-peco-danger-soft: var(--peco-danger-soft);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-peco-danger-light: var(--peco-danger-light);
+  --color-peco-info: var(--peco-info);
+  --color-peco-info-light: var(--peco-info-light);
+
+  --color-peco-triage-green: var(--peco-triage-green);
+  --color-peco-triage-yellow: var(--peco-triage-yellow);
+  --color-peco-triage-red: var(--peco-triage-red);
+
+  --color-peco-gray-900: var(--peco-gray-900);
+  --color-peco-gray-700: var(--peco-gray-700);
+  --color-peco-gray-500: var(--peco-gray-500);
+  --color-peco-gray-300: var(--peco-gray-300);
+  --color-peco-gray-100: var(--peco-gray-100);
+  --color-peco-gray-50: var(--peco-gray-50);
+
+  --radius-peco-sm: var(--peco-radius-sm);
+  --radius-peco-md: var(--peco-radius-md);
+  --radius-peco-lg: var(--peco-radius-lg);
+  --radius-peco-xl: var(--peco-radius-xl);
+
+  --shadow-peco-sm: var(--peco-shadow-sm);
+  --shadow-peco-md: var(--peco-shadow-md);
+  --shadow-peco-lg: var(--peco-shadow-lg);
+
+  --font-sans: var(--peco-font-sans);
+
+  /* Legacy aliases — older Header/Toast/Spinner used the deprecated bg-peco / bg-peco-soft / bg-peco-warning-soft tokens.
+     Map them to the new peco-secondary / semantic tokens so any remaining usage keeps rendering. */
+  --color-peco-soft: var(--peco-secondary-light);
+  --color-peco-warning-soft: var(--peco-warning-light);
+  --color-peco-danger-soft: var(--peco-danger-light);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    var(--font-geist-sans),
-    -apple-system,
-    BlinkMacSystemFont,
-    "Hiragino Sans",
-    "Hiragino Kaku Gothic ProN",
-    "Noto Sans JP",
-    Meiryo,
-    sans-serif;
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: var(--peco-bg);
+    color: var(--peco-text-primary);
+    font-family: var(--peco-font-sans);
+    font-size: var(--peco-text-base);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--peco-primary);
+    outline-offset: 2px;
+  }
 }
+
+@keyframes peco-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes peco-modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes peco-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes peco-toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.peco-fade-in { animation: peco-fade-in 160ms ease-out both; }
+.peco-modal-in { animation: peco-modal-in 200ms ease-out both; }
+.peco-toast-in { animation: peco-toast-in 220ms ease-out both; }
+.peco-spin { animation: peco-spin 0.8s linear infinite; }

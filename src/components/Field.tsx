@@ -47,7 +47,7 @@ export function Field({
 }
 
 const INPUT_BASE =
-  "h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20";
+  "h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none focus:ring-2 focus:ring-peco-secondary/20";
 
 const INPUT_ERROR =
   "h-12 w-full rounded-xl border border-red-500 bg-white px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-500/20";
@@ -134,7 +134,7 @@ export function TextAreaField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows}
-          className="min-h-[96px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
+          className="min-h-[96px] w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base focus:border-peco-secondary focus:outline-none focus:ring-2 focus:ring-peco-secondary/20"
         />
       )}
     </Field>
@@ -167,7 +167,7 @@ export function SelectField<T extends string>({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value as T)}
-          className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+          className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
         >
           {placeholder !== undefined && (
             <option value="">{placeholder}</option>

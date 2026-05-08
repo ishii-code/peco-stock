@@ -134,7 +134,7 @@ export default function StockInPage() {
           <button
             type="submit"
             disabled={!canSubmit}
-            className="h-14 w-full rounded-xl bg-[#00b5ad] text-base font-semibold text-white shadow-sm hover:bg-[#008f88] active:scale-[0.99] disabled:bg-zinc-300 disabled:cursor-not-allowed"
+            className="h-14 w-full rounded-xl bg-peco-secondary text-base font-semibold text-white shadow-sm hover:bg-peco-secondary-dark active:scale-[0.99] disabled:bg-zinc-300 disabled:cursor-not-allowed"
           >
             {submitting ? "登録中..." : "入庫する"}
           </button>

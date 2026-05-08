@@ -18,7 +18,7 @@ export function Spinner({ label, size = "md" }: Props) {
     >
       <span
         aria-hidden
-        className={`inline-block animate-spin rounded-full border-[#00b5ad] border-t-transparent ${SIZE_CLASS[size]}`}
+        className={`inline-block animate-spin rounded-full border-peco-secondary border-t-transparent ${SIZE_CLASS[size]}`}
       />
       {label && <span>{label}</span>}
     </div>

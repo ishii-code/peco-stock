@@ -48,7 +48,7 @@ export function QrCard({ value, label }: Props) {
       <button
         type="button"
         onClick={handlePrint}
-        className="inline-flex h-12 items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-5 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+        className="inline-flex h-12 items-center justify-center rounded-xl border border-peco-secondary bg-white px-5 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95"
       >
         印刷
       </button>

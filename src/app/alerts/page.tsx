@@ -92,7 +92,7 @@ export default function AlertsPage() {
             type="button"
             onClick={runCheck}
             disabled={busy}
-            className="inline-flex h-12 items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-5 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95 disabled:opacity-50"
+            className="inline-flex h-12 items-center justify-center rounded-xl border border-peco-secondary bg-white px-5 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95 disabled:opacity-50"
           >
             {busy ? "チェック中..." : "アラート再チェック"}
           </button>
@@ -142,7 +142,7 @@ export default function AlertsPage() {
                           <button
                             type="button"
                             onClick={() => handleResolve(alert.id)}
-                            className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-[#00b5ad] hover:text-[#00b5ad] active:scale-95"
+                            className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-peco-secondary hover:text-peco-secondary active:scale-95"
                           >
                             解決済み
                           </button>
@@ -203,7 +203,7 @@ export default function AlertsPage() {
                           <button
                             type="button"
                             onClick={() => handleResolve(alert.id)}
-                            className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-[#00b5ad] hover:text-[#00b5ad] active:scale-95"
+                            className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-peco-secondary hover:text-peco-secondary active:scale-95"
                           >
                             解決済み
                           </button>

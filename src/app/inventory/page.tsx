@@ -140,11 +140,11 @@ export default function InventoryPage() {
           <Link href="/" className="flex items-center gap-3 min-h-[48px]">
             <span
               aria-hidden
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#00b5ad] text-white text-lg font-bold"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-peco-secondary text-white text-lg font-bold"
             >
               P
             </span>
-            <span className="text-lg font-bold text-[#00b5ad]">PecoStock</span>
+            <span className="text-lg font-bold text-peco-secondary">PecoStock</span>
           </Link>
           <h1 className="text-base sm:text-lg font-semibold text-zinc-900">
             在庫一覧
@@ -159,12 +159,12 @@ export default function InventoryPage() {
             placeholder="物品名・YJ・JANで検索"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
+            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none focus:ring-2 focus:ring-peco-secondary/20"
           />
           <button
             type="button"
             onClick={() => setScannerOpen(true)}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#00b5ad] bg-white px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-peco-secondary bg-white px-4 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95"
             aria-label="QRスキャン"
           >
             <span aria-hidden className="text-xl">⊞</span>
@@ -173,7 +173,7 @@ export default function InventoryPage() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
           >
             {CATEGORY_FILTERS.map((c) => (
               <option key={c.value} value={c.value}>
@@ -184,7 +184,7 @@ export default function InventoryPage() {
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
           >
             <option value="default">標準順</option>
             <option value="lowStock">在庫少ない順</option>
@@ -270,14 +270,14 @@ const ItemRowView = function ItemRowView({
       ref={setRef}
       className={`border-t border-zinc-100 ${rowBg} ${
         isHighlighted
-          ? "outline outline-2 outline-[#00b5ad] outline-offset-[-2px]"
+          ? "outline outline-2 outline-peco-secondary outline-offset-[-2px]"
           : ""
       } transition-[outline]`}
     >
       <td className="px-4 py-3 font-medium text-zinc-900">
         <Link
           href={`/items/${row.id}`}
-          className="hover:text-[#00b5ad] hover:underline"
+          className="hover:text-peco-secondary hover:underline"
         >
           {row.name}
         </Link>
@@ -321,13 +321,13 @@ const ItemRowView = function ItemRowView({
         <div className="flex justify-end gap-2">
           <Link
             href="/stock-in"
-            className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl bg-[#00b5ad] px-4 text-sm font-medium text-white hover:bg-[#008f88] active:scale-95"
+            className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl bg-peco-secondary px-4 text-sm font-medium text-white hover:bg-peco-secondary-dark active:scale-95"
           >
             入庫
           </Link>
           <Link
             href="/stock-out"
-            className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl border border-[#00b5ad] px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95"
+            className="inline-flex h-12 min-w-[64px] items-center justify-center rounded-xl border border-peco-secondary px-4 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light active:scale-95"
           >
             出庫
           </Link>

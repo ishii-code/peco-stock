@@ -208,7 +208,7 @@ export default function OrdersPage() {
                             min="0"
                             value={d.quantity}
                             onChange={(e) => updateDraftQty(d.itemId, e.target.value)}
-                            className="h-12 w-24 rounded-xl border border-zinc-200 bg-white px-3 text-right text-base tabular-nums focus:border-[#00b5ad] focus:outline-none"
+                            className="h-12 w-24 rounded-xl border border-zinc-200 bg-white px-3 text-right text-base tabular-nums focus:border-peco-secondary focus:outline-none"
                           />
                           <span className="ml-2 text-xs text-zinc-500">
                             {d.unit}
@@ -240,7 +240,7 @@ export default function OrdersPage() {
                       value={supplierEmail}
                       onChange={(e) => setSupplierEmail(e.target.value)}
                       placeholder="supplier@example.com"
-                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
                     />
                   </label>
                   <label className="block">
@@ -252,7 +252,7 @@ export default function OrdersPage() {
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="任意"
-                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none"
+                      className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none"
                     />
                   </label>
                 </div>
@@ -260,7 +260,7 @@ export default function OrdersPage() {
                   type="button"
                   onClick={createOrder}
                   disabled={busy || draftItems.length === 0}
-                  className="h-14 w-full rounded-xl bg-[#00b5ad] text-base font-semibold text-white hover:bg-[#008f88] disabled:bg-zinc-300"
+                  className="h-14 w-full rounded-xl bg-peco-secondary text-base font-semibold text-white hover:bg-peco-secondary-dark disabled:bg-zinc-300"
                 >
                   {busy ? "作成中..." : "発注書を作成"}
                 </button>
@@ -314,7 +314,7 @@ export default function OrdersPage() {
                           type="button"
                           onClick={() => sendOrder(order.id, order.supplierEmail)}
                           disabled={busy}
-                          className="h-12 rounded-xl bg-[#00b5ad] px-4 text-sm font-medium text-white hover:bg-[#008f88] disabled:opacity-50"
+                          className="h-12 rounded-xl bg-peco-secondary px-4 text-sm font-medium text-white hover:bg-peco-secondary-dark disabled:opacity-50"
                         >
                           メール送信
                         </button>
@@ -324,7 +324,7 @@ export default function OrdersPage() {
                           type="button"
                           onClick={() => receiveOrder(order.id)}
                           disabled={busy}
-                          className="h-12 rounded-xl border border-[#00b5ad] bg-white px-4 text-sm font-medium text-[#00b5ad] hover:bg-[#e6f7f6] disabled:opacity-50"
+                          className="h-12 rounded-xl border border-peco-secondary bg-white px-4 text-sm font-medium text-peco-secondary hover:bg-peco-secondary-light disabled:opacity-50"
                         >
                           受領確認
                         </button>

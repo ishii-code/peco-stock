@@ -112,7 +112,7 @@ export default function StocktakePage() {
               type="button"
               onClick={startStocktake}
               disabled={busy}
-              className="mt-6 inline-flex h-14 items-center justify-center rounded-xl bg-[#00b5ad] px-8 text-base font-semibold text-white hover:bg-[#008f88] active:scale-[0.99] disabled:bg-zinc-300"
+              className="mt-6 inline-flex h-14 items-center justify-center rounded-xl bg-peco-secondary px-8 text-base font-semibold text-white hover:bg-peco-secondary-dark active:scale-[0.99] disabled:bg-zinc-300"
             >
               {busy ? "開始中..." : "新規棚卸開始"}
             </button>
@@ -121,7 +121,7 @@ export default function StocktakePage() {
 
         {stocktakeId && !report && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-[#00b5ad] bg-[#e6f7f6] px-4 py-3 text-sm text-[#008f88]">
+            <div className="rounded-2xl border border-peco-secondary bg-peco-secondary-light px-4 py-3 text-sm text-peco-secondary-dark">
               棚卸ID: <code className="font-mono">{stocktakeId}</code> · 各物品の実数を入力してください。
             </div>
 
@@ -185,7 +185,7 @@ export default function StocktakePage() {
                                     [row.id]: e.target.value,
                                   }))
                                 }
-                                className="h-12 w-28 rounded-xl border border-zinc-200 bg-white px-3 text-right text-base tabular-nums focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
+                                className="h-12 w-28 rounded-xl border border-zinc-200 bg-white px-3 text-right text-base tabular-nums focus:border-peco-secondary focus:outline-none focus:ring-2 focus:ring-peco-secondary/20"
                               />
                             </td>
                             <td
@@ -216,7 +216,7 @@ export default function StocktakePage() {
               type="button"
               onClick={completeStocktake}
               disabled={busy}
-              className="h-14 w-full rounded-xl bg-[#00b5ad] text-base font-semibold text-white hover:bg-[#008f88] active:scale-[0.99] disabled:bg-zinc-300"
+              className="h-14 w-full rounded-xl bg-peco-secondary text-base font-semibold text-white hover:bg-peco-secondary-dark active:scale-[0.99] disabled:bg-zinc-300"
             >
               {busy ? "登録中..." : "棚卸完了"}
             </button>
@@ -281,7 +281,7 @@ export default function StocktakePage() {
             <button
               type="button"
               onClick={reset}
-              className="h-14 w-full rounded-xl border border-[#00b5ad] bg-white text-base font-semibold text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-[0.99]"
+              className="h-14 w-full rounded-xl border border-peco-secondary bg-white text-base font-semibold text-peco-secondary hover:bg-peco-secondary-light active:scale-[0.99]"
             >
               新しい棚卸を開始
             </button>

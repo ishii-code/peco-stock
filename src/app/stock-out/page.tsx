@@ -156,8 +156,8 @@ export default function StockOutPage() {
                   onClick={() => setReason(opt.value)}
                   className={`h-12 rounded-xl border px-4 text-base font-medium transition active:scale-95 ${
                     reason === opt.value
-                      ? "border-[#00b5ad] bg-[#e6f7f6] text-[#00b5ad]"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-[#00b5ad]"
+                      ? "border-peco-secondary bg-peco-secondary-light text-peco-secondary"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-peco-secondary"
                   }`}
                 >
                   {opt.label}
@@ -190,7 +190,7 @@ export default function StockOutPage() {
           <button
             type="submit"
             disabled={!canSubmit}
-            className="h-14 w-full rounded-xl bg-[#00b5ad] text-base font-semibold text-white shadow-sm hover:bg-[#008f88] active:scale-[0.99] disabled:bg-zinc-300 disabled:cursor-not-allowed"
+            className="h-14 w-full rounded-xl bg-peco-secondary text-base font-semibold text-white shadow-sm hover:bg-peco-secondary-dark active:scale-[0.99] disabled:bg-zinc-300 disabled:cursor-not-allowed"
           >
             {submitting ? "登録中..." : "出庫する"}
           </button>

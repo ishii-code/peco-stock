@@ -126,7 +126,7 @@ export function ItemPicker({
 
   if (selected) {
     return (
-      <div className="rounded-xl border border-[#00b5ad] bg-[#e6f7f6] p-4 flex items-start justify-between gap-4">
+      <div className="rounded-xl border border-peco-secondary bg-peco-secondary-light p-4 flex items-start justify-between gap-4">
         <div>
           <div className="text-base font-semibold text-zinc-900">
             {selected.name}
@@ -143,7 +143,7 @@ export function ItemPicker({
             onSelect(null);
             setQuery("");
           }}
-          className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-[#00b5ad] active:scale-95"
+          className="inline-flex h-12 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 hover:border-peco-secondary active:scale-95"
         >
           変更
         </button>
@@ -163,7 +163,7 @@ export function ItemPicker({
           }}
           onFocus={() => setOpen(true)}
           placeholder="物品名・YJ・JANで検索"
-          className="h-12 flex-1 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-[#00b5ad] focus:outline-none focus:ring-2 focus:ring-[#00b5ad]/20"
+          className="h-12 flex-1 rounded-xl border border-zinc-200 bg-white px-4 text-base focus:border-peco-secondary focus:outline-none focus:ring-2 focus:ring-peco-secondary/20"
         />
         <button
           type="button"
@@ -172,7 +172,7 @@ export function ItemPicker({
             setScannerOpen(true);
           }}
           disabled={scanBusy}
-          className="inline-flex h-12 min-w-[56px] items-center justify-center rounded-xl border border-[#00b5ad] bg-white px-4 text-[#00b5ad] hover:bg-[#e6f7f6] active:scale-95 disabled:opacity-50"
+          className="inline-flex h-12 min-w-[56px] items-center justify-center rounded-xl border border-peco-secondary bg-white px-4 text-peco-secondary hover:bg-peco-secondary-light active:scale-95 disabled:opacity-50"
           aria-label="QRスキャン"
         >
           <span aria-hidden className="text-xl">

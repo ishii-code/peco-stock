@@ -95,12 +95,12 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <span
               aria-hidden
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#00b5ad] text-white text-lg font-bold"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-peco-secondary text-white text-lg font-bold"
             >
               P
             </span>
             <div>
-              <h1 className="text-xl font-bold text-[#00b5ad] tracking-tight">
+              <h1 className="text-xl font-bold text-peco-secondary tracking-tight">
                 PecoStock
               </h1>
               <p className="text-xs text-zinc-500">
@@ -132,7 +132,7 @@ export default function Home() {
               <li key={card.href}>
                 <Link
                   href={card.href}
-                  className="relative block min-h-[120px] rounded-2xl bg-white border border-zinc-200 p-5 transition hover:border-[#00b5ad] hover:shadow-md active:scale-[0.99]"
+                  className="relative block min-h-[120px] rounded-2xl bg-white border border-zinc-200 p-5 transition hover:border-peco-secondary hover:shadow-md active:scale-[0.99]"
                 >
                   {showBadge && (
                     <span className="absolute top-3 right-3 inline-flex min-w-[28px] h-7 items-center justify-center rounded-full bg-red-600 px-2 text-xs font-semibold text-white">
@@ -167,7 +167,7 @@ export default function Home() {
               href="http://localhost:3001"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-[#00b5ad] min-h-[64px]"
+              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-peco-secondary min-h-[64px]"
             >
               <div>
                 <div className="font-medium text-zinc-900">診断支援</div>
@@ -183,7 +183,7 @@ export default function Home() {
               href="http://localhost:3000"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-[#00b5ad] min-h-[64px]"
+              className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-5 py-4 hover:border-peco-secondary min-h-[64px]"
             >
               <div>
                 <div className="font-medium text-zinc-900">SFA</div>
